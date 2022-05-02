@@ -1,0 +1,182 @@
+<html>
+<head>
+<title>Pop Layers</title>
+<style>
+
+canvas
+{
+	width:	256px;
+	height:	256px;
+}
+
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/tasks@0.0.1-alpha.8"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite/dist/tf-tflite.min.js"></script>
+</head>
+<body>
+
+
+<img src=Cat256.jpg id=CatJpeg />
+<canvas id=Window width=256 height=256></canvas>
+
+
+<script type="module">
+
+function GetPixelsFromHtmlImageElement(Img,UseCanvas)
+{
+
+	function GetPixelsMetaFromHtmlImageElement(Img)
+	{
+		const Meta = {};
+		Meta.Width = Img.videoWidth || Img.width || Img.displayWidth;
+		Meta.Height = Img.videoHeight || Img.height || Img.displayHeight;
+		Meta.Format = 'RGBA';
+		return Meta;
+	}
+
+	//	html5 image
+	//if ( Img.constructor == WebApi_HtmlImageElement )
+	{
+		//	gr: is this really the best way :/
+		const Canvas = UseCanvas || document.createElement('canvas');
+		const Context = Canvas.getContext('2d');
+		const ImgMeta = GetPixelsMetaFromHtmlImageElement(Img);
+		const Width = ImgMeta.Width;
+		const Height = ImgMeta.Height;
+		Canvas.width = Width;
+		Canvas.height = Height;
+		Context.drawImage( Img, 0, 0 );
+		const ImageData = Context.getImageData(0, 0, Width, Height);
+		const Buffer = ImageData.data;
+		
+		const Pixels = {};
+		Pixels.Width = Width;
+		Pixels.Height = Height;
+		Pixels.Buffer = Buffer;
+		//	gr: I checked pixels manually, canvas is always RGBA [in chrome]
+		Pixels.Format = 'RGBA';
+		
+		if ( !UseCanvas )
+		{
+			//	destroy canvas (safari suggests its hanging around)
+			Canvas.width = 0;
+			Canvas.height = 0;
+			//delete Canvas;	//	not allowed in strict mode
+			//Canvas = null;
+		}
+		
+		return Pixels;
+	}
+}
+
+
+async function GenerateDepth(Image)
+{
+	//	<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl
+	
+	
+	//	https://github.com/isl-org/MiDaS
+	const ModelUrl = `lite-model_midas_v2_1_small_1_lite_1.tflite`;
+	//const ModelUrl = `https://storage.googleapis.com/tfweb/models/movie_review_sentiment_classification.tflite`;
+	
+	//	https://js.tensorflow.org/api_tflite/0.0.1-alpha.8/
+	const Options = {};
+	Options.backend = 'webgl';
+	const tfliteModel = await tflite.loadTFLiteModel(ModelUrl,Options);
+
+	//	makes WxHxChannels
+	//	needs [1, 256,256,3]
+	//	see https://github.com/ibaiGorordo/Midasv2_1_small-TFLite-Inference/blob/0ac44013efb8e391b11978ff3e4e205e5c533dab/MidasDepthEstimation/midasDepthEstimator.py#L56
+	/*
+	# Input values should be from -1 to 1 with a size of 128 x 128 pixels for the fornt model
+		# and 256 x 256 pixels for the back model
+		img_input = cv2.resize(img, (self.inputWidth,self.inputHeight),interpolation = cv2.INTER_CUBIC).astype(np.float32)
+	# Scale input pixel values to -1 to 1
+		mean=[0.485, 0.456, 0.406]
+		std=[0.229, 0.224, 0.225]
+		reshape_img = img_input.reshape(1, self.inputHeight, self.inputWidth,3)
+		img_input = ((img_input/ 255.0 - mean) / std).astype(np.float32)
+		img_input = img_input[np.newaxis,:,:,:]     
+	*/
+	//	gr: convert image to tensor
+	//	https://tfhub.dev/intel/midas/v2_1_small/1
+	//	input: (uint8) RGB image with shape (3, 256, 256)
+	//	output: (float32) inverse depth maps (1, 256, 256)
+	//	but then example does reshape_img = img_input.reshape(1,3,256,256)
+	let InputTensor = tf.browser.fromPixels(Image);
+	const Width = 256;
+	const Height = 256;
+	const InputChannels = 3;
+	InputTensor = InputTensor.reshape( [1,Width,Height,InputChannels] );
+	/*
+	// Prepare the input tensors from the image.
+	const inputTensor = tf.image
+	// Resize.
+	.resizeBilinear(tf.browser.fromPixels(document.querySelector("img")), [
+	224,
+	224
+	])
+	// Normalize.
+	.expandDims()
+	.div(127.5)
+	.sub(1);
+	*/
+	
+	const Result = await tfliteModel.predict(InputTensor);
+	const ResultData = await Result.data();
+	const Min = await Result.min().data();
+	const Max = await Result.max().data();
+	
+	//	turn depth data into rgba buffer for canvas	
+	const Canvas = document.querySelector(`canvas`);
+	const Context = Canvas.getContext('2d');
+	const RgbaPixels = Context.createImageData( Width, Height );
+	function DepthPixelToDepthRgba(p,Index)
+	{
+		p -= Min;
+		p /= Max-Min;
+		p *= 255;
+		const Rgba = [p,p,p,255];
+		const RgbaIndex = Index * 4;
+		RgbaPixels.data[RgbaIndex+0] = Rgba[0];
+		RgbaPixels.data[RgbaIndex+1] = Rgba[1];
+		RgbaPixels.data[RgbaIndex+2] = Rgba[2];
+		RgbaPixels.data[RgbaIndex+3] = Rgba[3];
+	}
+	ResultData.forEach( DepthPixelToDepthRgba );
+	
+	Context.putImageData( RgbaPixels, 0, 0 );
+	
+
+	/*
+	// Load the TFLite model.
+	//const model = await tfTask.NLClassification.CustomModel.TFLite.load({model:ModelUrl});
+	//const model = await tfTask.ImageClassification.CustomModel.TFLite.load({model:ModelUrl});
+	const model = await tfTask.ImageSegmentation.CustomModel.TFLite.load({model:ModelUrl});
+	
+
+	const Rgb = await GetPixelsFromHtmlImageElement(Image,Window);
+	const Result = await model.predict(Rgb.Buffer);
+	*/
+	/*
+	// Show the results.
+	resultDiv.textContent = result.classes
+	.map((c) => `${c.className}: ${c.score.toFixed(3)}`)
+	.join(", ");
+	});
+	}
+	}
+
+	start();
+	*/
+}
+
+const CatImg = document.querySelector(`#CatJpeg`);
+GenerateDepth(CatImg).catch(console.error);
+
+</script>
+
+</body>
+</html>
