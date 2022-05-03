@@ -1,10 +1,17 @@
 import {CreatePromise} from '../PopEngine/PromiseQueue.js'
 
-const TfLiteScriptUrl = `https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite/dist/tf-tflite.min.js`;
+//<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/tasks@0.0.1-alpha.8"></script>
+//<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js"></script>
+//<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite/dist/tf-tflite.min.js"></script>
+
+
+const TensorflowLiteScriptUrl = `https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite/dist/tf-tflite.min.js`;
+const TensorflowScriptUrl = `https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js`;
 const MidasModelFilename = `lite-model_midas_v2_1_small_1_lite_1.tflite`;
 
 //	insert <script> tag to load js
-let TfliteScript;
+let TensorflowLiteScript;
+let TensorflowScript;
 
 //	midas model as arraybuffer
 let MidasModelData;
@@ -35,9 +42,13 @@ async function LoadJsModuleScript(ModuleUrl)
 
 async function GetTensorFlowModule()
 {
-	if ( !TfliteScript )
+	if ( !TensorflowScript )
 	{
-		TfliteScript = await LoadJsModuleScript(TfLiteScriptUrl);
+		TensorflowScript = await LoadJsModuleScript(TensorflowScriptUrl);
+	}
+	if ( !TensorflowLiteScript )
+	{
+		TensorflowLiteScript = await LoadJsModuleScript(TensorflowLiteScriptUrl);
 	}
 	return window.tflite;
 }
