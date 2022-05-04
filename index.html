@@ -9,6 +9,7 @@ canvas
 	height:	256px;
 }
 
+
 </style>
 
 </head>
@@ -16,6 +17,7 @@ canvas
 
 
 <img src=Cat256.jpg id=CatJpeg />
+<canvas id=OutputStaticDepth width=256 height=256></canvas>
 <canvas id=InputVideo width=256 height=256></canvas>
 <canvas id=OutputDepth width=256 height=256></canvas>
 
@@ -47,7 +49,8 @@ function GetImageDataFromHtmlImageElement(Img,UseCanvas,OutputSize)
 		const Height = OutputSize ? OutputSize[1] : ImgMeta.Height;
 		Canvas.width = Width;
 		Canvas.height = Height;
-		Context.drawImage( Img, 0, 0 );
+		//	stretch to fill canvas
+		Context.drawImage( Img, 0, 0, Canvas.width, Canvas.height );
 		const ImageData = Context.getImageData(0, 0, Width, Height);
 		
 		if ( !UseCanvas )
@@ -119,6 +122,8 @@ async function GenerateDepthAndDrawToCanvas(Canvas,Image)
 	Depth.Pixels.forEach( DepthPixelToDepthRgba );
 	
 	await DrawToCanvas(Canvas,RgbaPixels);
+	
+	return RgbaPixels;
 }
 
 import {FetchArrayBufferStream} from './PopEngine/FileSystem.js'
@@ -129,6 +134,8 @@ async function VideoThread()
 	const Video = new VideoDecoder( VideoUrl );
 	const OutputCanvas = document.querySelector(`#OutputDepth`);
 	const InputCanvas = document.querySelector(`#InputVideo`);
+
+	//const OutputVideo = new VideoEncoder();
 
 	async function DownloadThread()
 	{
@@ -147,21 +154,31 @@ async function VideoThread()
 		const NextFrame = await Video.WaitForNextFrame();
 		if ( !NextFrame )
 			break;
-		await DrawToCanvas( InputCanvas, NextFrame.Data );
+		//await DrawToCanvas( InputCanvas, NextFrame.Data );
 		const OutputSize = [256,256];
 		const FramePixels = GetImageDataFromHtmlImageElement( NextFrame.Data, null, OutputSize );
-		//await GenerateDepthAndDrawToCanvas( OutputCanvas, FramePixels );
+		await DrawToCanvas( InputCanvas, FramePixels );
+		const DepthPixels = await GenerateDepthAndDrawToCanvas( OutputCanvas, FramePixels );
+		
+		//OutputVideo.encode(DepthPixels);
+		
 		if ( NextFrame.Free )
 			NextFrame.Free();
 		else if ( NextFrame.Data.Free )
 			NextFrame.Data.Free();
 	}
 }
-VideoThread();
+//VideoThread();
 
-const CatImg = document.querySelector(`#CatJpeg`);
-const OutputCanvas = document.querySelector(`#OutputDepth`);
-//GenerateDepthAndDrawToCanvas(OutputCanvas,CatImg).catch(console.error);
+async function Bootup()
+{
+	const CatImg = document.querySelector(`#CatJpeg`);
+	const OutputCanvas = document.querySelector(`#OutputStaticDepth`);
+	await GenerateDepthAndDrawToCanvas(OutputCanvas,CatImg).catch(console.error);
+
+	await VideoThread();
+}
+Bootup();
 
 </script>
 
