@@ -16,16 +16,17 @@ canvas
 
 
 <img src=Cat256.jpg id=CatJpeg />
-<canvas id=Window width=256 height=256></canvas>
+<canvas id=InputVideo width=256 height=256></canvas>
+<canvas id=OutputDepth width=256 height=256></canvas>
 
 
 <script type="module">
 
 import {GenerateDepth} from './GenerateDepth/GenerateDepth.js'
+import {VideoDecoder} from './PopEngine/Video.js'
 
-function GetPixelsFromHtmlImageElement(Img,UseCanvas)
+function GetImageDataFromHtmlImageElement(Img,UseCanvas,OutputSize)
 {
-
 	function GetPixelsMetaFromHtmlImageElement(Img)
 	{
 		const Meta = {};
@@ -42,20 +43,12 @@ function GetPixelsFromHtmlImageElement(Img,UseCanvas)
 		const Canvas = UseCanvas || document.createElement('canvas');
 		const Context = Canvas.getContext('2d');
 		const ImgMeta = GetPixelsMetaFromHtmlImageElement(Img);
-		const Width = ImgMeta.Width;
-		const Height = ImgMeta.Height;
+		const Width = OutputSize ? OutputSize[0] : ImgMeta.Width;
+		const Height = OutputSize ? OutputSize[1] : ImgMeta.Height;
 		Canvas.width = Width;
 		Canvas.height = Height;
 		Context.drawImage( Img, 0, 0 );
 		const ImageData = Context.getImageData(0, 0, Width, Height);
-		const Buffer = ImageData.data;
-		
-		const Pixels = {};
-		Pixels.Width = Width;
-		Pixels.Height = Height;
-		Pixels.Buffer = Buffer;
-		//	gr: I checked pixels manually, canvas is always RGBA [in chrome]
-		Pixels.Format = 'RGBA';
 		
 		if ( !UseCanvas )
 		{
@@ -66,12 +59,45 @@ function GetPixelsFromHtmlImageElement(Img,UseCanvas)
 			//Canvas = null;
 		}
 		
-		return Pixels;
+		return ImageData;
 	}
 }
 
 
-async function GenerateDepthAndDrawToCanvas(Image,Canvas)
+function GetPixelsFromHtmlImageElement(Img,UseCanvas)
+{
+	const ImageData = GetImageDataFromHtmlImageElement(Img,UseCanvas);
+	
+	const Buffer = ImageData.data;
+		
+	const Pixels = {};
+	Pixels.Width = Width;
+	Pixels.Height = Height;
+	Pixels.Buffer = Buffer;
+	//	gr: I checked pixels manually, canvas is always RGBA [in chrome]
+	Pixels.Format = 'RGBA';
+		
+	return Pixels;
+}
+
+async function DrawToCanvas(Canvas,Image)
+{
+	const Context = Canvas.getContext('2d');
+
+	if ( Image instanceof ImageData )
+	{
+		Context.putImageData( Image, 0, 0 );
+	}
+	else
+	{
+		let Width = Canvas.width || Image.width || Image.displayWidth;
+		let Height = Canvas.height || Image.height || Image.displayHeight;
+		//	stretches!
+		Context.drawImage( Image, 0, 0, Width, Height );
+	}
+}
+
+async function GenerateDepthAndDrawToCanvas(Canvas,Image)
 {
 	const Depth = await GenerateDepth(Image);
 	
@@ -92,13 +118,50 @@ async function GenerateDepthAndDrawToCanvas(Image,Canvas)
 	}
 	Depth.Pixels.forEach( DepthPixelToDepthRgba );
 	
-	Context.putImageData( RgbaPixels, 0, 0 );
+	await DrawToCanvas(Canvas,RgbaPixels);
 }
 
+import {FetchArrayBufferStream} from './PopEngine/FileSystem.js'
+
+async function VideoThread()
+{
+	const VideoUrl = `Cat3.mp4`;
+	const Video = new VideoDecoder( VideoUrl );
+	const OutputCanvas = document.querySelector(`#OutputDepth`);
+	const InputCanvas = document.querySelector(`#InputVideo`);
+
+	async function DownloadThread()
+	{
+		function OnProgress(Chunks)
+		{
+			const LastChunk = Chunks.slice(-1)[0];
+			Video.PushData(LastChunk);
+		}
+		await FetchArrayBufferStream(VideoUrl,OnProgress);
+		
+	}
+	DownloadThread();
+
+	while ( true )
+	{
+		const NextFrame = await Video.WaitForNextFrame();
+		if ( !NextFrame )
+			break;
+		await DrawToCanvas( InputCanvas, NextFrame.Data );
+		const OutputSize = [256,256];
+		const FramePixels = GetImageDataFromHtmlImageElement( NextFrame.Data, null, OutputSize );
+		//await GenerateDepthAndDrawToCanvas( OutputCanvas, FramePixels );
+		if ( NextFrame.Free )
+			NextFrame.Free();
+		else if ( NextFrame.Data.Free )
+			NextFrame.Data.Free();
+	}
+}
+VideoThread();
 
 const CatImg = document.querySelector(`#CatJpeg`);
-const Canvas = document.querySelector(`canvas`);
-GenerateDepthAndDrawToCanvas(CatImg,Canvas).catch(console.error);
+const OutputCanvas = document.querySelector(`#OutputDepth`);
+//GenerateDepthAndDrawToCanvas(OutputCanvas,CatImg).catch(console.error);
 
 </script>
 
