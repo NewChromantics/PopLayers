@@ -105,7 +105,11 @@ export async function GenerateDepth(Image)
 	const Height = 256;
 	const InputChannels = 3;
 	InputTensor = InputTensor.reshape( [1,Width,Height,InputChannels] );
-	
+
+	//	slow bit, moved here so we're reminded we're doing it
+	//	gr: it's not that slow. prediction is slow, but this removes the warning
+	InputTensor = tf.cast( InputTensor, 'float32' );
+
 	
 	const Result = await Model.predict(InputTensor);
 	
