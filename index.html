@@ -10,14 +10,132 @@ canvas
 }
 
 
+body
+{
+	background:	#eee;
+	padding:	1em;
+
+	/* stretch grid to fill */
+	height:		100vh;
+	margin:		0px;
+	overflow:	hidden;
+	
+	display:	grid;
+	grid-template-areas:	"DropZone DropZone"
+							"Error Error"
+							"Progress Progress"
+							"InputVideo OutputDepth"
+							;
+	grid-template-columns:	0.5fr 0.5fr;
+	grid-template-rows:		0.4fr 0.0fr 0.1fr 0.5fr;
+	align-items:		normal;
+	justify-items:		normal;
+}
+
+
+#DropZone *
+{
+	display:	block;
+}
+
+#DropZone span
+{
+	pointer-events:	none;
+}
+
+#DropZone
+{
+	grid-area:	DropZone;
+	border:		dashed 1px #000;
+	padding:	1em;
+	background:	#fff;
+	
+	display:	grid;
+	align-items:		center;
+	justify-items:		center;
+}
+
+#Progress
+{
+	grid-area:	Progress;
+	background:	#ff0;
+	padding:	1em;
+}
+
+#InputVideo
+{
+	grid-area:	InputVideo;
+	background:	#efe;
+	padding:	1em;
+}
+
+#OutputDepth
+{
+	grid-area:	OutputDepth;
+	background:	#ffe;
+	padding:	1em;
+}
+
+#Error,
+#Info
+{
+	display:	block;
+	grid-area:	Error;
+	background:	#d33;
+	color:		#fff;
+	border:		1px solid #fff;
+	padding:	0.5em;
+	margin:		1em;
+}
+
+#Info
+{
+	grid-area:	Info;
+	background:	#3d3;
+}
+
+#Error:empty,
+#Info:empty
+{
+	display:	none;
+}
+
 </style>
 
 </head>
 <body>
 
+<script>
+	var QueueNewVideoFunction = function(){	throw `QueueNewVideoFunction not assigned`;	};
+	
+	function LoadCatMp4()
+	{
+		QueueNewVideoFunction(`Cat3.mp4`);
+	}
+	
+	function SetProgress(FrameCompleted,FrameCount)
+	{
+		const Div = document.querySelector(`#Progress`);
+		const Text = `${FrameCompleted}/${FrameCount}`;
+		Div.innerText = Text;
+	}
+	
+	function OnError(Error)
+	{
+		const Div = document.querySelector(`#Error`);
+		const Text = Error ? `${Error}` : '';
+		Div.innerText = Text;
+	}		
+	
+</script>
 
-<img src=Cat256.jpg id=CatJpeg />
-<canvas id=OutputStaticDepth width=256 height=256></canvas>
+<div id=DropZone>
+	<span>Drop .mp4 Here</span>
+	<button onclick="LoadCatMp4()">Load Cat.mp4</button>
+</div>
+<div id=Error></div>
+<div id=Progress>0/0</div>
+
 <canvas id=InputVideo width=256 height=256></canvas>
 <canvas id=OutputDepth width=256 height=256></canvas>
 
@@ -128,9 +246,8 @@ async function GenerateDepthAndDrawToCanvas(Canvas,Image)
 
 import {FetchArrayBufferStream} from './PopEngine/FileSystem.js'
 
-async function VideoThread()
+async function VideoThread(VideoUrl)
 {
-	const VideoUrl = `Cat3.mp4`;
 	const Video = new VideoDecoder( VideoUrl );
 	const OutputCanvas = document.querySelector(`#OutputDepth`);
 	const InputCanvas = document.querySelector(`#InputVideo`);
@@ -149,6 +266,23 @@ async function VideoThread()
 	}
 	DownloadThread();
 
+	//	wait for meta so we know how many frames exist
+	const Meta = await Video.WaitForVideoMetaChange();
+	let FrameCount = Meta.Samples.length;
+	SetProgress(0,FrameCount);
+	
+	async function MetaChangedThread()
+	{
+		while ( true )
+		{
+			const Meta = await Video.WaitForVideoMetaChange();
+			FrameCount = Meta.Samples.length;
+		}
+	}
+	//	keep watching for new meta
+	MetaChangedThread();
+		
+
 	while ( true )
 	{
 		const NextFrame = await Video.WaitForNextFrame();
@@ -160,6 +294,7 @@ async function VideoThread()
 		await DrawToCanvas( InputCanvas, FramePixels );
 		const DepthPixels = await GenerateDepthAndDrawToCanvas( OutputCanvas, FramePixels );
 		
+		SetProgress( NextFrame.FrameIndex, FrameCount );
 		//OutputVideo.encode(DepthPixels);
 		
 		if ( NextFrame.Free )
@@ -168,17 +303,14 @@ async function VideoThread()
 			NextFrame.Data.Free();
 	}
 }
-//VideoThread();
 
-async function Bootup()
+//	assign the function in the synchornous script
+window.QueueNewVideoFunction = function(VideoUrl)
 {
-	const CatImg = document.querySelector(`#CatJpeg`);
-	const OutputCanvas = document.querySelector(`#OutputStaticDepth`);
-	await GenerateDepthAndDrawToCanvas(OutputCanvas,CatImg).catch(console.error);
-
-	await VideoThread();
+	//	todo: stop old thread
+	window.OnError();
+	VideoThread(VideoUrl).catch( window.OnError );
 }
-Bootup();
 
 </script>
 

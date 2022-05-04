@@ -69,8 +69,8 @@ async function FetchAndCreateMidasModel()
 {
 	const Tflite = await GetTensorFlowModule();
 
-	//const Backend = 'webgl';
-	const Backend = 'wasm';
+	const Backend = 'webgl';
+	//const Backend = 'wasm';
 
 	window.tf.setBackend(Backend);
 	
