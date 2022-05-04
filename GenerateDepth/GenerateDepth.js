@@ -6,7 +6,7 @@ import {CreatePromise} from '../PopEngine/PromiseQueue.js'
 
 
 const TensorflowLiteScriptUrl = `https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite/dist/tf-tflite.min.js`;
-const TensorflowScriptUrl = `https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js`;
+const TensorflowScriptUrl = `https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.0.0/dist/tf.min.js`;
 const MidasModelFilename = `lite-model_midas_v2_1_small_1_lite_1.tflite`;
 
 //	insert <script> tag to load js
@@ -68,6 +68,11 @@ async function FetchMidasModelData(Url)
 async function FetchAndCreateMidasModel()
 {
 	const Tflite = await GetTensorFlowModule();
+
+	//const Backend = 'webgl';
+	const Backend = 'wasm';
+
+	window.tf.setBackend(Backend);
 	
 	let Url = import.meta.url;
 	Url = Url.split('/').slice(0,-1).join('/');
@@ -76,7 +81,13 @@ async function FetchAndCreateMidasModel()
 
 	//	https://js.tensorflow.org/api_tflite/0.0.1-alpha.8/
 	const Options = {};
-	Options.backend = 'webgl';
+	Options.backend = Backend;
+	
+	//	https://codelabs.developers.google.com/tensorflowjs-coral-tflite-node#5
+	//let webnnDevice = WebNNDevice.GPU;
+	//Options.delegates = [new WebNNDelegate({webnnDevice})];
+
+	
 	const tfliteModel = await Tflite.loadTFLiteModel(MidasModelData,Options);
 	return tfliteModel
 }
