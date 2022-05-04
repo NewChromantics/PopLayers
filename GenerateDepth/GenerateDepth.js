@@ -113,8 +113,10 @@ export async function GenerateDepth(Image)
 	const ResultData = await Result.data();
 	
 	//	gr: are these some normalising range... or are they literally just min & max values?
-	const Min = await Result.min().data();
-	const Max = await Result.max().data();
+	let Min = await Result.min().data();
+	let Max = await Result.max().data();
+	Min = Min[0];
+	Max = Max[0];
 	
 	const Depth = {};
 	Depth.MinValue = Min;
