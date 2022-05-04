@@ -136,6 +136,8 @@ export async function GenerateDepth(Image)
 	const Depth = {};
 	Depth.MinValue = Min;
 	Depth.MaxValue = Max;
+	Depth.MinValue = 0;
+	Depth.MaxValue = 400;
 	//	get these from output tensor
 	Depth.Width = Width;
 	Depth.Height = Height;
