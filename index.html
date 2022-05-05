@@ -110,7 +110,7 @@ body
 	
 	function LoadCatMp4()
 	{
-		QueueNewVideoFunction(`Cat3.mp4`);
+		QueueNewVideoFunction(`Cat2.mp4`);
 	}
 	
 	function SetProgress(FrameCompleted,FrameCount)
@@ -244,7 +244,12 @@ async function GenerateDepthAndDrawToCanvas(Canvas,Image)
 	return RgbaPixels;
 }
 
-import {FetchArrayBufferStream} from './PopEngine/FileSystem.js'
+import {FetchArrayBufferStream,WriteToFile} from './PopEngine/FileSystem.js'
+import {CreatePromise} from './PopEngine/PromiseQueue.js'
+import {GetNaluMeta,SplitNalus} from './PopEngine/H264.js'
+import {Mp4FragmentedEncoder} from './PopEngine/Mp4.js'
+import {DataWriter} from './PopEngine/DataReader.js'
+
 
 async function VideoThread(VideoUrl)
 {
@@ -252,7 +257,92 @@ async function VideoThread(VideoUrl)
 	const OutputCanvas = document.querySelector(`#OutputDepth`);
 	const InputCanvas = document.querySelector(`#InputVideo`);
 
-	//const OutputVideo = new VideoEncoder();
+	const ErrorPromise = CreatePromise();
+	let OutputMp4Encoder = new Mp4FragmentedEncoder();
+	let OutputVideoEncoder;
+
+	function OnFrameEncoded(EncodedVideoChunk,StreamMetaData)
+	{
+		const TrackId = 1;
+		if ( StreamMetaData && StreamMetaData.decoderConfig )
+		{
+			const Meta = StreamMetaData.decoderConfig;
+			const Codec = Meta.codec;
+			const ColourSpace = Meta.colorSpace;
+			const ExtraDataSpsPps = Meta.description;
+			console.log(`StreamMetaData`,StreamMetaData);
+			OutputMp4Encoder.PushExtraData( ExtraDataSpsPps, TrackId );
+		}
+		const Bytes = new Uint8Array( EncodedVideoChunk.byteLength );
+		const TimeMs = EncodedVideoChunk.timestamp / 1000;
+		EncodedVideoChunk.copyTo( Bytes );
+		console.log(`Encoded frame x${Bytes.length} @${TimeMs}`,EncodedVideoChunk);
+		OutputMp4Encoder.PushSample( Bytes, TimeMs, TimeMs, TrackId );
+		try
+		{
+			const Packets = SplitNalus(Bytes);
+			const Metas = Packets.map( GetNaluMeta );
+			Metas.forEach( m => console.log(`Encoded packet:`,m) );
+		}
+		catch(e)
+		{
+			console.warn(`Nalu error: ${e}`);
+		}
+	}
+	function OnEncodingError(Error)
+	{
+		console.error(`Encoding error ${Error}`);
+		ErrorPromise.Reject(Error);
+	}
+
+	async function GetVideoEncoder(Image)
+	{
+		if ( !OutputVideoEncoder )
+		{
+			//	gr: could do this on first frame output
+			const EncoderParams = {};
+			EncoderParams.output = OnFrameEncoded;
+			EncoderParams.error = OnEncodingError;
+			OutputVideoEncoder = new VideoEncoder(EncoderParams);
+			
+			const EncoderConfig = {};
+			EncoderConfig.codec = 'avc1.42E01E';	//	todo: construct properly
+			EncoderConfig.width = Image.width;
+			EncoderConfig.height = Image.height;
+			//EncoderConfig.bitrate = 8_000_000;	// 8 Mbps
+			//EncoderConfig.framerate = 30;
+			EncoderConfig.optimizeForLatency = true;
+			await OutputVideoEncoder.configure(EncoderConfig);
+		}
+		return OutputVideoEncoder;
+	}
+	
+	async function OutputFrame(Image,TimeMs)
+	{
+		const Encoder = await GetVideoEncoder(Image);
+		const TimeMicro = TimeMs * 1000;
+		const FrameMeta = {};
+		//FrameMeta.duration = //	microsecs
+		FrameMeta.timestamp = TimeMicro;//	microsecs
+		
+		//	for array buffer
+		/*
+		FrameMeta.format = 
+		"I420"
+		"I420A"
+		"I422"
+		"I444"
+		"NV12"
+		"RGBA"
+		"RGBX"
+		"BGRA"
+		"BGRX"
+		*/
+		const Bitmap = await createImageBitmap(Image);
+		const Frame = new VideoFrame( Bitmap, FrameMeta );
+		Encoder.encode( Frame );
+		Frame.close();
+	}
 
 	async function DownloadThread()
 	{
@@ -262,7 +352,7 @@ async function VideoThread(VideoUrl)
 			Video.PushData(LastChunk);
 		}
 		await FetchArrayBufferStream(VideoUrl,OnProgress);
-		
+		Video.PushEndOfFile();
 	}
 	DownloadThread();
 
@@ -285,7 +375,8 @@ async function VideoThread(VideoUrl)
 
 	while ( true )
 	{
-		const NextFrame = await Video.WaitForNextFrame();
+		const NextFramePromise = Video.WaitForNextFrame();
+		const NextFrame = await Promise.any([NextFramePromise,ErrorPromise]);
 		if ( !NextFrame )
 			break;
 		//await DrawToCanvas( InputCanvas, NextFrame.Data );
@@ -293,7 +384,10 @@ async function VideoThread(VideoUrl)
 		const FramePixels = GetImageDataFromHtmlImageElement( NextFrame.Data, null, OutputSize );
 		await DrawToCanvas( InputCanvas, FramePixels );
 		const DepthPixels = await GenerateDepthAndDrawToCanvas( OutputCanvas, FramePixels );
+		//const DepthPixels = FramePixels;
+		let FrameTimeMs = NextFrame.TimeMs || (NextFrame.FrameIndex*30);
 		
+		await OutputFrame( DepthPixels, FrameTimeMs );
 		SetProgress( NextFrame.FrameIndex, FrameCount );
 		//OutputVideo.encode(DepthPixels);
 		
@@ -302,6 +396,21 @@ async function VideoThread(VideoUrl)
 		else if ( NextFrame.Data.Free )
 			NextFrame.Data.Free();
 	}
+	
+	//	wait for encoder to finish
+	await OutputVideoEncoder.flush();
+	OutputMp4Encoder.PushEndOfFile();
+	
+	const Mp4Data = new DataWriter();
+	while ( true )
+	{
+		const Mp4Chunk = await OutputMp4Encoder.WaitForNextEncodedBytes();
+		if ( !Mp4Chunk )
+			break;
+		Mp4Data.WriteBytes( Mp4Chunk );
+	}
+	const FinalMp4Data = Mp4Data.GetData();
+	WriteToFile("Output.mp4", FinalMp4Data);
 }
 
 //	assign the function in the synchornous script
