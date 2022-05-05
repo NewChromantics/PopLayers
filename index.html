@@ -218,7 +218,7 @@ async function DrawToCanvas(Canvas,Image)
 	}
 }
 
-async function GenerateDepthAndDrawToCanvas(Canvas,Image)
+async function GenerateDepthRgba(Canvas,Image)
 {
 	const Depth = await GenerateDepth(Image);
 	
@@ -238,9 +238,6 @@ async function GenerateDepthAndDrawToCanvas(Canvas,Image)
 		RgbaPixels.data[RgbaIndex+3] = Rgba[3];
 	}
 	Depth.Pixels.forEach( DepthPixelToDepthRgba );
-	
-	await DrawToCanvas(Canvas,RgbaPixels);
-	
 	return RgbaPixels;
 }
 
@@ -309,7 +306,10 @@ async function VideoThread(VideoUrl)
 			EncoderConfig.codec = 'avc1.42E01E';	//	todo: construct properly
 			EncoderConfig.width = Image.width;
 			EncoderConfig.height = Image.height;
-			//EncoderConfig.bitrate = 8_000_000;	// 8 Mbps
+			EncoderConfig.bitrate = 8 * 1024 * 1024 * 30;//32_000_000;	// bits per second
+			EncoderConfig.bitrateMode = 'variable';	//	'constant'
+			//EncoderConfig.latencyMode = 'realtime';
+			EncoderConfig.latencyMode = 'quality';
 			//EncoderConfig.framerate = 30;
 			EncoderConfig.optimizeForLatency = true;
 			await OutputVideoEncoder.configure(EncoderConfig);
@@ -340,7 +340,9 @@ async function VideoThread(VideoUrl)
 		*/
 		const Bitmap = await createImageBitmap(Image);
 		const Frame = new VideoFrame( Bitmap, FrameMeta );
-		Encoder.encode( Frame );
+		const EncodeOptions = {};
+		//EncodeOptions.keyFrame = true;
+		Encoder.encode( Frame, EncodeOptions );
 		Frame.close();
 	}
 
@@ -383,7 +385,13 @@ async function VideoThread(VideoUrl)
 		const OutputSize = [256,256];
 		const FramePixels = GetImageDataFromHtmlImageElement( NextFrame.Data, null, OutputSize );
 		await DrawToCanvas( InputCanvas, FramePixels );
-		const DepthPixels = await GenerateDepthAndDrawToCanvas( OutputCanvas, FramePixels );
+		const DepthPixels = await GenerateDepthRgba( OutputCanvas, FramePixels );
+		
+		//	overwrite half frame with colour
+		//DepthPixels.data.set( FramePixels.data.slice(0,FramePixels.data.length/10) )
+		
+		await DrawToCanvas(OutputCanvas,DepthPixels);
+	
 		//const DepthPixels = FramePixels;
 		let FrameTimeMs = NextFrame.TimeMs || (NextFrame.FrameIndex*30);
 		
@@ -395,6 +403,9 @@ async function VideoThread(VideoUrl)
 			NextFrame.Free();
 		else if ( NextFrame.Data.Free )
 			NextFrame.Data.Free();
+			
+		//if ( NextFrame.FrameIndex > 10 )
+		//	break;
 	}
 	
 	//	wait for encoder to finish
