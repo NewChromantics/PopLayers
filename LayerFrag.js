@@ -1,5 +1,6 @@
 import Layer_t from './Layer.js'
 import PopImage from './PopEngine/PopWebImageApi.js'
+import {CreateBlitQuadGeometry} from './PopEngine/CommonGeometry.js'
 
 const DefaultFrag = `
 precision highp float;
@@ -18,7 +19,8 @@ attribute vec2 LocalPosition;
 void main()
 {
 	vec2 xy = mix( Rect.xy, Rect.xy+Rect.zw, LocalPosition );
-	gl_Position = vec4( xy, 0.0, 1.0 );
+	FragUv = LocalPosition;
+	gl_Position = vec4( xy, 0.5, 1.0 );
 }
 `;
 
@@ -53,6 +55,8 @@ export default class LayerFrag extends Layer_t
 	{
 		if ( !this.Geometry )
 		{
+			const Quad = CreateBlitQuadGeometry([0,0,1,1],'LocalPosition');
+			this.Geometry = await RenderContext.CreateGeometry( Quad );
 		}
 		return this.Geometry;
 	}
@@ -80,16 +84,20 @@ export default class LayerFrag extends Layer_t
 		
 		const FrameTimeMs = Uniforms.FrameTimeMs;
 		const TimeNorm = (FrameTimeMs/1000) % 1;
-		const ClearColour = [0,TimeNorm,1,0.5];
-		//const ClearColour = [1,0,0,1];
+		//const ClearColour = [0,TimeNorm,1,0.5];
+		const ClearColour = [1,0,0,1];
 		const ReadBack = (Target!=null) ? true : undefined;	//	need to readback for thumbnails in app
 		const Clear = ['SetRenderTarget',Target, ClearColour, ReadBack ];
-	return [Clear];
-		const Rect = [0,0,1,1];
+
+		const Rect = [-1,-1,2,2];
+		Uniforms.Rect = Rect;
 		const Geo = await this.GetGeometry(RenderContext);
 		const Shader = await this.GetShader(RenderContext);
+		const State = {};
+		State.DepthRead = false;
+		State.DepthWrite = false;
 		
-		const Draw = ['Draw', Geo, Shader, Uniforms ];
+		const Draw = ['Draw', Geo, Shader, Uniforms, State ];
 		return [Clear,Draw];
 	}
 	
