@@ -1,0 +1,399 @@
+<html>
+<head>
+<title>Pop Layers</title>
+<script src="./WebComponent_TreeView/TreeView.js" type=module></script>
+<style>
+
+canvas
+{
+	width:	256px;
+	height:	256px;
+}
+
+:root
+{
+	--ChequerBoardSize:		15px;
+	--ChequerBoardColourA:	#ccf;/*#89d;*/
+	--ChequerBoardColourB:	#eee;/*#cce;*/
+	--ChequerBoardBackground:		repeating-conic-gradient( var(--ChequerBoardColourA) 0% 25%, var(--ChequerBoardColourB) 0% 50%) 50% / var(--ChequerBoardSize) var(--ChequerBoardSize);
+
+}
+
+body
+{
+	--Spacing:	1em;
+	
+	background:	#333;
+	padding:	0px;
+	margin:		var(--Spacing);
+	overflow:	hidden;
+
+	/* stretch grid to fill */
+	height:		100vh;
+	
+	display:	grid;
+	grid-template-areas:	"Workspace Thumbnails"
+							;
+	grid-template-columns:	1.0fr 0.3fr;
+	align-items:		normal;
+	justify-items:		normal;
+	
+	grid-column-gap:	var(--Spacing);
+	grid-row-gap:		var(--Spacing);
+}
+
+#Workspace
+{
+	display:	grid;
+	grid-template-areas:	"Error"
+							"Progress"
+							"Preview"
+							"Uniforms"
+							;
+	grid-template-rows:		0.0fr 0.05fr 1.0fr 0.2fr;
+}
+
+#Preview
+{
+	background:	var(--ChequerBoardBackground);
+	
+	grid-area:	Preview;
+	min-height:	10vh;
+}
+
+#Uniforms
+{
+	background:	#eee;
+	grid-area:	Uniforms;
+	min-height:	10vh;
+	display:	block;
+}
+
+#Thumbnails
+{
+	overflow:	auto;
+	background:	#eee;
+	/*
+	display:	grid;
+	grid-template-columns:	1fr;
+	grid-auto-rows: 1fr;
+	grid-column-gap: 30px;
+	grid-row-gap: 30px;
+	*/
+}
+
+#Thumbnails > *
+{
+	display:	block;
+	padding:	0em;
+	margin:		1em;
+	
+	background:	var(--ChequerBoardBackground);
+
+}
+
+#DropZone *
+{
+	display:	block;
+}
+
+#DropZone span
+{
+	pointer-events:	none;
+}
+
+#DropZone
+{
+	grid-area:	DropZone;
+	border:		dashed 1px #000;
+	padding:	1em;
+	
+	display:	grid;
+	align-items:		center;
+	justify-items:		center;
+}
+
+#Progress
+{
+	grid-area:	Progress;
+	background:	#ff0;
+	padding:	1em;
+}
+
+#InputVideo
+{
+	grid-area:	InputVideo;
+	background:	#efe;
+	padding:	1em;
+}
+
+#OutputDepth
+{
+	grid-area:	OutputDepth;
+	background:	#ffe;
+	padding:	1em;
+}
+
+#Error,
+#Info
+{
+	display:	block;
+	grid-area:	Error;
+	background:	#d33;
+	color:		#fff;
+	border:		1px solid #fff;
+	padding:	0.5em;
+	margin:		1em;
+}
+
+#Info
+{
+	grid-area:	Info;
+	background:	#3d3;
+}
+
+#Error:empty,
+#Info:empty
+{
+	display:	none;
+}
+
+</style>
+
+</head>
+<body>
+
+<script>
+	var QueueNewVideoFunction = function(){	throw `QueueNewVideoFunction not assigned`;	};
+	
+	function LoadCatMp4()
+	{
+		QueueNewVideoFunction(`Cat2.mp4`);
+	}
+	
+	function SetProgress(FrameCompleted,FrameCount)
+	{
+		const Div = document.querySelector(`#Progress`);
+		const Text = `${FrameCompleted}/${FrameCount}`;
+		Div.innerText = Text;
+	}
+	
+	function OnError(Error)
+	{
+		const Div = document.querySelector(`#Error`);
+		const Text = Error ? `${Error}` : '';
+		Div.innerText = Text;
+	}		
+	
+</script>
+
+<div id=Workspace>
+	<div id=Error></div>
+	<div id=Progress>0/0</div>
+	<div id=Preview></div>
+	<tree-view id=Uniforms json='[1,2,3,4]' css="WebComponent_TreeView/TreeView.css"></tree-View>
+</div>
+<div id=Thumbnails>
+	<canvas id=OutputDepth width=256 height=256></canvas>
+	<canvas id=InputVideo width=256 height=256></canvas>
+	
+	<div id=DropZone>
+		<span>Drop .mp4 Layer</span>
+		<button onclick="LoadCatMp4()">Load Cat.mp4</button>
+	</div>
+	
+</div>
+
+<script type="module">
+
+import {GenerateDepth} from './GenerateDepth/GenerateDepth.js'
+import {VideoDecoder} from './PopEngine/VideoDecoder.js'
+
+function GetImageDataFromHtmlImageElement(Img,UseCanvas,OutputSize)
+{
+	function GetPixelsMetaFromHtmlImageElement(Img)
+	{
+		const Meta = {};
+		Meta.Width = Img.videoWidth || Img.width || Img.displayWidth;
+		Meta.Height = Img.videoHeight || Img.height || Img.displayHeight;
+		Meta.Format = 'RGBA';
+		return Meta;
+	}
+
+	//	html5 image
+	//if ( Img.constructor == WebApi_HtmlImageElement )
+	{
+		//	gr: is this really the best way :/
+		const Canvas = UseCanvas || document.createElement('canvas');
+		const Context = Canvas.getContext('2d');
+		const ImgMeta = GetPixelsMetaFromHtmlImageElement(Img);
+		const Width = OutputSize ? OutputSize[0] : ImgMeta.Width;
+		const Height = OutputSize ? OutputSize[1] : ImgMeta.Height;
+		Canvas.width = Width;
+		Canvas.height = Height;
+		//	stretch to fill canvas
+		Context.drawImage( Img, 0, 0, Canvas.width, Canvas.height );
+		const ImageData = Context.getImageData(0, 0, Width, Height);
+		
+		if ( !UseCanvas )
+		{
+			//	destroy canvas (safari suggests its hanging around)
+			Canvas.width = 0;
+			Canvas.height = 0;
+			//delete Canvas;	//	not allowed in strict mode
+			//Canvas = null;
+		}
+		
+		return ImageData;
+	}
+}
+
+
+function GetPixelsFromHtmlImageElement(Img,UseCanvas)
+{
+	const ImageData = GetImageDataFromHtmlImageElement(Img,UseCanvas);
+	
+	const Buffer = ImageData.data;
+		
+	const Pixels = {};
+	Pixels.Width = Width;
+	Pixels.Height = Height;
+	Pixels.Buffer = Buffer;
+	//	gr: I checked pixels manually, canvas is always RGBA [in chrome]
+	Pixels.Format = 'RGBA';
+		
+	return Pixels;
+}
+
+async function DrawToCanvas(Canvas,Image)
+{
+	const Context = Canvas.getContext('2d');
+
+	if ( Image instanceof ImageData )
+	{
+		Context.putImageData( Image, 0, 0 );
+	}
+	else
+	{
+		let Width = Canvas.width || Image.width || Image.displayWidth;
+		let Height = Canvas.height || Image.height || Image.displayHeight;
+		//	stretches!
+		Context.drawImage( Image, 0, 0, Width, Height );
+	}
+}
+
+async function GenerateDepthRgba(Canvas,Image)
+{
+	const Depth = await GenerateDepth(Image);
+	
+	//	turn depth data into rgba buffer for canvas	
+	const Context = Canvas.getContext('2d');
+	const RgbaPixels = Context.createImageData( Depth.Width, Depth.Height );
+	function DepthPixelToDepthRgba(p,Index)
+	{
+		p -= Depth.MinValue;
+		p /= Depth.MaxValue - Depth.MinValue;
+		p *= 255;
+		const Rgba = [p,p,p,255];
+		const RgbaIndex = Index * 4;
+		RgbaPixels.data[RgbaIndex+0] = Rgba[0];
+		RgbaPixels.data[RgbaIndex+1] = Rgba[1];
+		RgbaPixels.data[RgbaIndex+2] = Rgba[2];
+		RgbaPixels.data[RgbaIndex+3] = Rgba[3];
+	}
+	Depth.Pixels.forEach( DepthPixelToDepthRgba );
+	return RgbaPixels;
+}
+
+import {FetchArrayBufferStream,WriteToFile} from './PopEngine/FileSystem.js'
+import {CreatePromise} from './PopEngine/PromiseQueue.js'
+import {DataWriter} from './PopEngine/DataReader.js'
+import {VideoEncoder_t} from './PopEngine/VideoEncoder.js'
+
+async function VideoThread(VideoUrl)
+{
+	const Video = new VideoDecoder( VideoUrl );
+	const OutputCanvas = document.querySelector(`#OutputDepth`);
+	const InputCanvas = document.querySelector(`#InputVideo`);
+
+	const ErrorPromise = CreatePromise();
+	let OutputEncoder = new VideoEncoder_t();
+
+	
+	async function DownloadThread()
+	{
+		function OnProgress(Chunks)
+		{
+			const LastChunk = Chunks.slice(-1)[0];
+			Video.PushData(LastChunk);
+		}
+		await FetchArrayBufferStream(VideoUrl,OnProgress);
+		Video.PushEndOfFile();
+	}
+	DownloadThread();
+
+	//	wait for meta so we know how many frames exist
+	const Meta = await Video.WaitForVideoMetaChange();
+	let FrameCount = Meta.Samples.length;
+	SetProgress(0,FrameCount);
+	
+	async function MetaChangedThread()
+	{
+		while ( true )
+		{
+			const Meta = await Video.WaitForVideoMetaChange();
+			FrameCount = Meta.Samples.length;
+		}
+	}
+	//	keep watching for new meta
+	MetaChangedThread();
+		
+
+	while ( true )
+	{
+		const EncoderErrorPromise = OutputEncoder.WaitForEncodedData();
+		const NextFramePromise = Video.WaitForNextFrame();
+		const NextFrame = await Promise.any([NextFramePromise,EncoderErrorPromise]);
+		if ( !NextFrame )
+			break;
+		//await DrawToCanvas( InputCanvas, NextFrame.Data );
+		const OutputSize = [256,256];
+		const FramePixels = GetImageDataFromHtmlImageElement( NextFrame.Data, null, OutputSize );
+		await DrawToCanvas( InputCanvas, FramePixels );
+		const DepthPixels = await GenerateDepthRgba( OutputCanvas, FramePixels );
+		//const DepthPixels = FramePixels;
+		
+		//	overwrite half frame with colour
+		//DepthPixels.data.set( FramePixels.data.slice(0,FramePixels.data.length/10) )
+		
+		await DrawToCanvas(OutputCanvas,DepthPixels);
+	
+		let FrameTimeMs = NextFrame.TimeMs || (NextFrame.FrameIndex*33);
+		
+		OutputEncoder.PushFrame( DepthPixels, FrameTimeMs );
+		SetProgress( NextFrame.FrameIndex, FrameCount );
+		//OutputVideo.encode(DepthPixels);
+		
+		if ( NextFrame.Free )
+			NextFrame.Free();
+		else if ( NextFrame.Data.Free )
+			NextFrame.Data.Free();
+	}
+	
+	OutputEncoder.PushEndOfFile();	
+	const Mp4Data = await OutputEncoder.WaitForEncodedData();
+	WriteToFile("Output.mp4", Mp4Data);
+}
+
+//	assign the function in the synchornous script
+window.QueueNewVideoFunction = function(VideoUrl)
+{
+	//	todo: stop old thread
+	window.OnError();
+	VideoThread(VideoUrl).catch( window.OnError );
+}
+
+</script>
+
+</body>
+</html>
