@@ -51,6 +51,8 @@ export default class LayerFrag extends Layer_t
 		
 		this.NewFragSource = null;
 		this.ClearColour = [0,0,0,0];
+		
+		this.UserUniforms = {};
 	}
 	
 	set Frag(Source)
@@ -61,8 +63,40 @@ export default class LayerFrag extends Layer_t
 	GetUniforms()
 	{
 		const Uniforms = {};
+		
+		//	insert auto-detected uniforms
+		if ( this.Shader )
+		{
+			const UniformMetas = this.Shader.UniformMetas;
+			for ( let UniformName in UniformMetas )
+			{
+				const Meta = UniformMetas[UniformName];
+				Uniforms[UniformName] = Meta.default || 0;//todo: get default from comment
+			}
+		}
+		
+		Object.assign( Uniforms, this.UserUniforms );
 		Uniforms.FragSource = this.NewFragSource || this.FragSource;
 		return Uniforms;
+	}
+	
+	GetUniformMetas()
+	{
+		const Metas = super.GetUniformMetas();
+		//	find any meta from shader comments!
+		if ( this.Shader )
+		{
+			const UniformMetas = this.Shader.UniformMetas;
+			for ( let UniformName in UniformMetas )
+			{
+				const Meta = Metas[UniformName];
+				if ( !Meta )
+					continue;
+				const ShaderMeta = UniformMetas[UniformName];
+				Object.assign( Meta, ShaderMeta );
+			}
+		}
+		return Metas;
 	}
 	
 	SetUniforms(Uniforms)
@@ -70,6 +104,12 @@ export default class LayerFrag extends Layer_t
 		//	detect source change
 		if ( Uniforms.FragSource != this.NewFragSource || this.FragSource )
 			this.Frag = Uniforms.FragSource;
+		
+		//	save values
+		Object.assign(this.UserUniforms,Uniforms);
+		
+		//	delete built-in uniforms
+		delete this.UserUniforms.FragSource;
 	}
 	
 	GetTargetImage()

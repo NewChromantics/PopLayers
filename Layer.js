@@ -29,6 +29,17 @@ export default class Layer
 		return {};
 	}
 	
+	//	get [static/runtime] meta associated with values for UI purposes
+	GetUniformMetas()
+	{
+		//	deafult makes everything writable
+		const Uniforms = this.GetUniforms();
+		const Metas = {};
+		for ( let UniformName in Uniforms )
+			Metas[UniformName] = { Writable:true };
+		return Metas;
+	}
+	
 	//	todo: with frame number for setting keyframes?
 	SetUniforms(Uniforms)
 	{

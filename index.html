@@ -27,7 +27,6 @@ body
 	background:	#333;
 	padding:	0px;
 	margin:		var(--Spacing);
-	overflow:	hidden;
 
 	/* stretch grid to fill */
 	height:		100vh;
@@ -279,9 +278,7 @@ function SetupThumbnailUi()
 
 		const Layer = LayerManager.GetLayer(Index);
 		const LayerUniforms = Layer.GetUniforms();
-		const LayerUniformMeta = {};
-		for ( let UniformName in LayerUniforms )
-			LayerUniformMeta[UniformName] = { Writable:true };
+		const LayerUniformMeta = Layer.GetUniformMetas();
 		UniformsElement.meta = LayerUniformMeta;
 		UniformsElement.json = LayerUniforms;
 		
@@ -319,12 +316,15 @@ async function SaveToLocalStorage(LayerManager)
 const DefaultFragShader = `precision highp float;
 varying vec2 FragUv;
 uniform float FrameTimeMs;
+uniform float StripeCount; // {min:1,max:100,default:50}
 void main()
 {
 	float TimeNorm = fract( FrameTimeMs / 1000.0);
 	gl_FragColor = vec4( FragUv, 0, 0.5 );
 	float Stripe = length(FragUv - vec2(0.5));
-	gl_FragColor.z = abs(Stripe-TimeNorm) < 0.05 ? 0.0 : 1.0;
+	Stripe *= StripeCount;
+	Stripe = fract(Stripe);
+	gl_FragColor.z = abs(Stripe-TimeNorm) < 0.2 ? 0.0 : 1.0;
 	gl_FragColor.w = max( gl_FragColor.z, gl_FragColor.w );
 }
 `;
