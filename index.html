@@ -98,19 +98,18 @@ body
 	border:		2px solid red;
 }
 
-#DropZone *
+#Thumbnails > div *
 {
 	display:	block;
 }
 
-#DropZone span
+#Thumbnails > div span
 {
 	pointer-events:	none;
 }
 
-#DropZone
+#Thumbnails > div
 {
-	grid-area:	DropZone;
 	border:		dashed 1px #000;
 	padding:	1em;
 	
@@ -171,6 +170,7 @@ body
 
 <script>
 	var QueueNewVideoFunction = function(){	throw `QueueNewVideoFunction not assigned`;	};
+	var OnAddFragLayer = function(){	throw `OnAddFragLayer not assigned`; };
 	
 	function LoadCatMp4()
 	{
@@ -228,6 +228,11 @@ body
 		return LayerThumbnailImages[LayerIndex];
 	}
 	
+	function AddFragLayer()
+	{
+		OnAddFragLayer();
+	}
+	
 </script>
 
 <div id=Workspace>
@@ -242,6 +247,10 @@ body
 		<span>Drop .mp4 Layer</span>
 		<button onclick="LoadCatMp4()">Load Cat.mp4</button>
 	</div>
+	<div id=AddLayerBox>
+		<span>Add new frag layer</span>
+		<button onclick="AddFragLayer()">Add Frag Layer</button>
+	</div>
 </div>
 
 <script type="module">
@@ -253,6 +262,12 @@ import {Yield} from './PopEngine/PopWebApiCore.js'
 
 let LayerManager;
 
+
+OnAddFragLayer = function()
+{
+	const Layer = new LayerFrag();
+	LayerManager.InsertLayer( Layer );
+}
 
 function SetupThumbnailUi()
 {
@@ -301,6 +316,19 @@ async function SaveToLocalStorage(LayerManager)
 	window.localStorage.setItem('LayerManagerStructure',StructureJson);
 }
 
+const DefaultFragShader = `precision highp float;
+varying vec2 FragUv;
+uniform float FrameTimeMs;
+void main()
+{
+	float TimeNorm = fract( FrameTimeMs / 1000.0);
+	gl_FragColor = vec4( FragUv, 0, 0.5 );
+	float Stripe = length(FragUv - vec2(0.5));
+	gl_FragColor.z = abs(Stripe-TimeNorm) < 0.05 ? 0.0 : 1.0;
+	gl_FragColor.w = max( gl_FragColor.z, gl_FragColor.w );
+}
+`;
+
 async function AppStartup()
 {
 	const Canvas = document.querySelector(`#Preview`);
@@ -312,19 +340,7 @@ async function AppStartup()
 	if ( !AnyLoaded )
 	{
 		const Layer0 = new LayerFrag();
-		Layer0.Frag = `
-			precision highp float;
-			varying vec2 FragUv;
-			uniform float FrameTimeMs;
-			void main()
-			{
-				float TimeNorm = fract( FrameTimeMs / 1000.0);
-				gl_FragColor = vec4( FragUv, 0, 0.5 );
-				float Stripe = length(FragUv - vec2(0.5));
-				gl_FragColor.z = abs(Stripe-TimeNorm) < 0.05 ? 0.0 : 1.0;
-				gl_FragColor.w = max( gl_FragColor.z, gl_FragColor.w );
-			}
-		`;
+		Layer0.Frag = DefaultFragShader;
 		LayerManager.InsertLayer( Layer0, 0 );
 	}
 	

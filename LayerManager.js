@@ -135,10 +135,13 @@ export default class LayerManager
 		return this.Layers[LayerIndex];
 	}
 	
-	InsertLayer(Layer,Position)
+	InsertLayer(Layer,Position=null)
 	{
 		if ( !(Layer instanceof Layer_t) )
 			throw `Layer is not a layer`;
+		if ( Position === null )
+			Position = this.Layers.length;
+			 
 		this.Layers.splice( Position, 0, Layer );
 		this.OnLayerChanged(Layer,`Added`);
 	}
