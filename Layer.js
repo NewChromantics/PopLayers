@@ -5,6 +5,11 @@ export default class Layer
 	{
 	}
 	
+	get FactoryTypeName()
+	{
+		return this.constructor.name;
+	}
+	
 	//	here you can force certain meta like
 	//		layer dimensions
 	GetOutputMeta(PreviousLayerMeta={})

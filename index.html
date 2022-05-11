@@ -85,9 +85,10 @@ body
 
 #Thumbnails > *
 {
+	width:		100%;
 	display:	block;
 	padding:	0em;
-	margin:		1em;
+	margin:		0em;
 	
 	background:	var(--ChequerBoardBackground);
 }
@@ -272,44 +273,72 @@ function SetupThumbnailUi()
 		UniformsElement.onchange = function(NewUniforms)
 		{
 			Layer.SetUniforms(NewUniforms);
+			LayerManager.OnLayerChanged(Layer,`Changed uniforms`);
 		}
 	}
 	ThumbnailsDiv.OnSelectionChanged = OnLayerSelected;
 }
 SetupThumbnailUi();
 
+async function LoadFromLocalStorage(LayerManager)
+{
+	const StructureJson = window.localStorage.getItem('LayerManagerStructure');
+	if ( !StructureJson )
+		return false;
+	
+	const Structure = JSON.parse( StructureJson );
+	LayerManager.LoadStructure(Structure,`LocalStorage`);
+	return true;
+}
+
+async function SaveToLocalStorage(LayerManager)
+{
+	//	should switch to indexedDB once we need to store blobs (images probably)
+	//	https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API
+	const Structure = await LayerManager.GetStructure();
+	//	todo: convert back to make sure we haven't lost anything in translation?
+	const StructureJson = JSON.stringify( Structure );
+	window.localStorage.setItem('LayerManagerStructure',StructureJson);
+}
+
 async function AppStartup()
 {
 	const Canvas = document.querySelector(`#Preview`);
 	LayerManager = new LayerManager_t(Canvas);
 
+	const AnyLoaded = await LoadFromLocalStorage(LayerManager);
 	
-	const Layer0 = new LayerFrag();
-	const Layer1 = new LayerFrag();
-	LayerManager.InsertLayer( Layer0, 0 );
-	LayerManager.InsertLayer( Layer1, 1 );
-	
-	Layer1.Frag = `
-precision highp float;
-varying vec2 FragUv;
-uniform sampler2D PreviousLayerImage;
-uniform float FrameTimeMs;
-void main()
-{
-	gl_FragColor = texture2D( PreviousLayerImage, FragUv );
-	gl_FragColor.z = fract( FrameTimeMs / 1000.0);
-	gl_FragColor.w = 0.5;
-}
-`;
+	//	load a default frag layer
+	if ( !AnyLoaded )
+	{
+		const Layer0 = new LayerFrag();
 		Layer0.Frag = `
-precision highp float;
-varying vec2 FragUv;
-uniform sampler2D PreviousLayerImage;
-void main()
-{
-	gl_FragColor = vec4( FragUv,0.0,1.0 );
-}
-`;
+			precision highp float;
+			varying vec2 FragUv;
+			uniform float FrameTimeMs;
+			void main()
+			{
+				float TimeNorm = fract( FrameTimeMs / 1000.0);
+				gl_FragColor = vec4( FragUv, 0, 0.5 );
+				float Stripe = length(FragUv - vec2(0.5));
+				gl_FragColor.z = abs(Stripe-TimeNorm) < 0.05 ? 0.0 : 1.0;
+				gl_FragColor.w = max( gl_FragColor.z, gl_FragColor.w );
+			}
+		`;
+		LayerManager.InsertLayer( Layer0, 0 );
+	}
+	
+	async function SaveLayerManagerThread()
+	{
+		while ( true )
+		{
+			await LayerManager.WaitForStructureChange();
+			await SaveToLocalStorage(LayerManager);
+		}
+	}
+	SaveLayerManagerThread();
+	
+	
 	//	todo: render only when
 	//	- user changes time
 	//	- user changes uniforms

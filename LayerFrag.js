@@ -111,7 +111,15 @@ export default class LayerFrag extends Layer_t
 		if ( !this.Shader )
 		{
 			const Macros = {};
-			this.Shader = await RenderContext.CreateShader( this.VertSource, this.FragSource, Macros );
+			try
+			{
+				this.Shader = await RenderContext.CreateShader( this.VertSource, this.FragSource, Macros );
+			}
+			catch(e)
+			{
+				//	todo:
+				console.warn(e);
+			}
 		}
 		return this.Shader;
 	}
