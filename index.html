@@ -50,7 +50,7 @@ body
 							"Preview"
 							"Uniforms"
 							;
-	grid-template-rows:		0.0fr 0.05fr 1.0fr 0.4fr;
+	grid-template-rows:		0.0fr 2em 1fr 2fr;
 }
 
 #Preview
@@ -170,6 +170,7 @@ body
 <script>
 	var QueueNewVideoFunction = function(){	throw `QueueNewVideoFunction not assigned`;	};
 	var OnAddFragLayer = function(){	throw `OnAddFragLayer not assigned`; };
+	var OnAddDepthEstimateLayer = function(){	throw `OnAddDepthEstimateLayer not assigned`; };
 	
 	function LoadCatMp4()
 	{
@@ -232,6 +233,11 @@ body
 		OnAddFragLayer();
 	}
 	
+	function AddDepthEstimateLayer()
+	{
+		OnAddDepthEstimateLayer();
+	}
+	
 </script>
 
 <div id=Workspace>
@@ -250,6 +256,10 @@ body
 		<span>Add new frag layer</span>
 		<button onclick="AddFragLayer()">Add Frag Layer</button>
 	</div>
+	<div id=AddLayerBox>
+		<span>Add depth estimate layer</span>
+		<button onclick="AddDepthEstimateLayer()">Add Depth Estimate Layer</button>
+	</div>
 </div>
 
 <script type="module">
@@ -257,6 +267,7 @@ body
 
 import LayerManager_t from './LayerManager.js'
 import LayerFrag from './LayerFrag.js'
+import LayerDepthEstimate from './LayerDepthEstimate.js'
 import {Yield} from './PopEngine/PopWebApiCore.js'
 
 let LayerManager;
@@ -265,6 +276,11 @@ let LayerManager;
 OnAddFragLayer = function()
 {
 	const Layer = new LayerFrag();
+	LayerManager.InsertLayer( Layer );
+}
+OnAddDepthEstimateLayer = function()
+{
+	const Layer = new LayerDepthEstimate();
 	LayerManager.InsertLayer( Layer );
 }
 
@@ -371,8 +387,11 @@ async function AppStartup()
 	let FrameTimeMs = 0;
 	while ( true )
 	{
-		FrameTimeMs += 1000/60;
-		await LayerManager.Render( FrameTimeMs, OnLayerImage );
+		//FrameTimeMs += 1000/60;
+		FrameTimeMs += 16;
+		//let ReadBackPixels = (FrameTimeMs % (10*16)) == 0;
+		let ReadBackPixels = true;
+		await LayerManager.Render( FrameTimeMs, ReadBackPixels ? OnLayerImage : null );
 	}
 }
 AppStartup();

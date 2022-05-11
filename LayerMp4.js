@@ -13,7 +13,7 @@ export default class LayerMp4 extends Layer
 		return null;
 	}
 	
-	async GetImage(FrameTimeMs,RenderContext)
+	async GetImage(FrameTimeMs,RenderContext,NeedCpuPixels)
 	{
 		throw `todo: get frame ${TimeMs} in mp4`;
 	}

@@ -12,19 +12,10 @@ void main()
 }
 `;
 
-export const Frag_Debug = `
-precision highp float;
-varying vec2 FragUv;
-void main()
-{
-	gl_FragColor = vec4( FragUv, 0.0, 1.0 );
-}
-`;
-
 const DefaultVert = `
 precision highp float;
 varying vec2 FragUv;
-uniform vec4 Rect;
+uniform vec4 Rect;	//	Visible:false
 attribute vec2 LocalPosition;
 void main()
 {
@@ -53,6 +44,15 @@ export default class LayerFrag extends Layer_t
 		this.ClearColour = [0,0,0,0];
 		
 		this.UserUniforms = {};
+		this.BuiltInUniforms = [
+		//'PreviousLayerImage'
+		'FragSource',
+		'FrameTimeMs',
+		];
+		this.HiddenUniformTypes = [
+		'sampler2D','sampler3D',
+		'vec2','vec3','vec4',
+		];
 	}
 	
 	set Frag(Source)
@@ -71,11 +71,16 @@ export default class LayerFrag extends Layer_t
 			for ( let UniformName in UniformMetas )
 			{
 				const Meta = UniformMetas[UniformName];
+				if ( this.HiddenUniformTypes.includes( Meta.Type ) )
+					continue;
 				Uniforms[UniformName] = Meta.default || 0;//todo: get default from comment
 			}
 		}
 		
 		Object.assign( Uniforms, this.UserUniforms );
+		
+		this.BuiltInUniforms.forEach( biu => delete Uniforms[biu] );
+		
 		Uniforms.FragSource = this.NewFragSource || this.FragSource;
 		return Uniforms;
 	}
@@ -109,7 +114,7 @@ export default class LayerFrag extends Layer_t
 		Object.assign(this.UserUniforms,Uniforms);
 		
 		//	delete built-in uniforms
-		delete this.UserUniforms.FragSource;
+		this.BuiltInUniforms.forEach( biu => delete this.UserUniforms[biu] );
 	}
 	
 	GetTargetImage()
@@ -164,7 +169,7 @@ export default class LayerFrag extends Layer_t
 		return this.Shader;
 	}
 	
-	async GetRenderCommands(RenderUniforms,RenderContext,Target=undefined)
+	async GetRenderCommands(RenderUniforms,RenderContext,Target=undefined,ReadBackTarget=true)
 	{
 		//	null is a valid target! (screen)
 		if ( Target === undefined )
@@ -181,7 +186,7 @@ export default class LayerFrag extends Layer_t
 		//const ClearColour = [1,0,0,1];
 		//const ClearColour = [0,0,0,0];
 		const ClearColour = this.ClearColour;
-		const ReadBack = (Target!=null) ? true : undefined;	//	need to readback for thumbnails in app
+		const ReadBack = (Target!=null) ? ReadBackTarget : undefined;	//	need to readback for thumbnails in app
 		const Clear = ['SetRenderTarget',Target, ClearColour, ReadBack ];
 
 		const Rect = [0,0,1,1];
@@ -196,7 +201,7 @@ export default class LayerFrag extends Layer_t
 		return [Clear,Draw];
 	}
 	
-	async GetImage(FrameTimeMs,RenderUniforms,RenderContext)
+	async GetImage(FrameTimeMs,RenderUniforms,RenderContext,NeedCpuPixels)
 	{
 		//	generate commands
 		let Uniforms = {};
@@ -205,7 +210,7 @@ export default class LayerFrag extends Layer_t
 		
 		//	render
 		const TargetImage = await this.GetTargetImage();
-		const RenderCommands = await this.GetRenderCommands( Uniforms, RenderContext, TargetImage );
+		const RenderCommands = await this.GetRenderCommands( Uniforms, RenderContext, TargetImage, NeedCpuPixels );
 		await RenderContext.Render( RenderCommands );
 		
 		return TargetImage;

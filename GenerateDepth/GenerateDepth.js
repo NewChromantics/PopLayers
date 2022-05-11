@@ -59,7 +59,7 @@ async function FetchMidasModelData(Url)
 	//	todo: big file, so get progress callback
 	const Response = await fetch(Url);
 	if ( !Response.ok )
-		throw `${Response.statusCode}`;
+		throw `${Url} error: ${Response.status}`;
 	
 	const Data = await Response.arrayBuffer();
 	return Data;

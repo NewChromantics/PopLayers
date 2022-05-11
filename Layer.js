@@ -43,6 +43,9 @@ export default class Layer
 	//	todo: with frame number for setting keyframes?
 	SetUniforms(Uniforms)
 	{
+		//	allow this to not-error if no uniforms provided
+		if ( !Uniforms || Object.keys(Uniforms).length == 0 )
+			return;
 		throw `Handle new uniforms in layer class`
 	}
 	

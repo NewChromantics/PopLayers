@@ -1,12 +1,14 @@
 import Layer_t from './Layer.js'
 import Pop from './PopEngine/PopEngine.js'
 import Layer_Frag from './LayerFrag.js'
+import Layer_DepthEstimate from './LayerDepthEstimate.js'
 import {CreateColourTexture} from './PopEngine/Images.js'
 import PromiseQueue from './PopEngine/PromiseQueue.js'
 
 
 const LayerTypes = [
-Layer_Frag
+Layer_Frag,
+Layer_DepthEstimate
 ];
 
 function GetDefaultLayerFactory()
@@ -53,7 +55,8 @@ class LayerRenderer
 			let LayerOutput;
 			try
 			{
-				LayerOutput = await Layer.GetImage( FrameTimeMs, Uniforms, this.RenderContext );
+				const ReadBackPixels = OnLayerProducedImage != null;
+				LayerOutput = await Layer.GetImage( FrameTimeMs, Uniforms, this.RenderContext, ReadBackPixels );
 			}
 			catch(e)
 			{
@@ -62,7 +65,8 @@ class LayerRenderer
 			}
 			
 			//	maybe this should be layer->promise?
-			OnLayerProducedImage( l, LayerOutput );
+			if ( OnLayerProducedImage )
+				OnLayerProducedImage( l, LayerOutput );
 			
 			Uniforms.PreviousLayerImage = LayerOutput;
 		}
@@ -78,6 +82,9 @@ class LayerRenderer
 			const FinalRenderCommands = await this.BlitToScreenLayer.GetRenderCommands( FinalRenderUniforms, this.RenderContext, FinalRenderTarget );
 			await this.RenderContext.Render( FinalRenderCommands );
 		}
+		
+		//	would we be more efficient (neater code, less gl syncs) to readback all targets here
+		//	once we know the screen has been resolved?
 	}
 }
 
