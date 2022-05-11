@@ -57,7 +57,20 @@ export default class LayerFrag extends Layer_t
 	{
 		this.NewFragSource = Source;
 	}
-		
+	
+	GetUniforms()
+	{
+		const Uniforms = {};
+		Uniforms.FragSource = this.NewFragSource || this.FragSource;
+		return Uniforms;
+	}
+	
+	SetUniforms(Uniforms)
+	{
+		//	detect source change
+		if ( Uniforms.FragSource != this.NewFragSource || this.FragSource )
+			this.Frag = Uniforms.FragSource;
+	}
 	
 	GetTargetImage()
 	{
@@ -89,6 +102,7 @@ export default class LayerFrag extends Layer_t
 			if ( this.Shader )
 			{
 				this.Shader.Free();
+				this.Shader = null;
 			}
 			this.FragSource = this.NewFragSource;
 			this.NewFragSource = null;

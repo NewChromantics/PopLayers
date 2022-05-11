@@ -2,6 +2,7 @@
 <head>
 <title>Pop Layers</title>
 <script src="./WebComponent_TreeView/TreeView.js" type=module></script>
+<script src="./WebComponent_ThumbnailList/ThumbnailList.js" type=module></script>
 <style>
 
 canvas
@@ -50,7 +51,7 @@ body
 							"Preview"
 							"Uniforms"
 							;
-	grid-template-rows:		0.0fr 0.05fr 1.0fr 0.2fr;
+	grid-template-rows:		0.0fr 0.05fr 1.0fr 0.4fr;
 }
 
 #Preview
@@ -89,7 +90,11 @@ body
 	margin:		1em;
 	
 	background:	var(--ChequerBoardBackground);
+}
 
+#Thumbnails img[selected]
+{
+	border:		2px solid red;
 }
 
 #DropZone *
@@ -185,20 +190,36 @@ body
 		Div.innerText = Text;
 	}
 	
+	function GetLayerThumbnailImages()
+	{
+		return Array.from( document.querySelectorAll(`#Thumbnails img`) );
+	}
+		
+	function SelectThumbnailElement(Element,Index)
+	{
+		const ThumbnailsDiv = document.querySelector(`#Thumbnails`);
+		
+		let LayerThumbnailImages = GetLayerThumbnailImages();
+		LayerThumbnailImages.forEach( img => img.removeAttribute('selected') );
+		Element.setAttribute('selected',true);
+		
+		if ( ThumbnailsDiv.OnSelectionChanged )
+			ThumbnailsDiv.OnSelectionChanged(Index);
+	}
+	
 	function GetLayerThumbnailElement(LayerIndex)
 	{
 		const ThumbnailsDiv = document.querySelector(`#Thumbnails`);
-		function GetLayerThumbnailImages()
-		{
-			return Array.from( document.querySelectorAll(`#Thumbnails img`) );
-		}
 		
 		let LayerThumbnailImages = GetLayerThumbnailImages();
 		
 		//	add images to document if some are missing
 		while ( LayerIndex >= LayerThumbnailImages.length )
 		{
+			const NewImageIndex = LayerThumbnailImages.length;
 			let NewImage = document.createElement('img');
+			NewImage.onclick = () => SelectThumbnailElement(NewImage,NewImageIndex);
+
 			ThumbnailsDiv.appendChild( NewImage );
 			LayerThumbnailImages = GetLayerThumbnailImages();
 		}
@@ -212,15 +233,14 @@ body
 	<div id=Error></div>
 	<div id=Progress>0/0</div>
 	<canvas id=Preview></canvas>
-	<tree-view id=Uniforms json='[1,2,3,4]' css="WebComponent_TreeView/TreeView.css"></tree-View>
+	<tree-view id=Uniforms json='' css="WebComponent_TreeView/TreeView.css"></tree-View>
 </div>
+
 <div id=Thumbnails>
-	
 	<div id=DropZone>
 		<span>Drop .mp4 Layer</span>
 		<button onclick="LoadCatMp4()">Load Cat.mp4</button>
 	</div>
-	
 </div>
 
 <script type="module">
@@ -231,6 +251,32 @@ import LayerFrag from './LayerFrag.js'
 import {Yield} from './PopEngine/PopWebApiCore.js'
 
 let LayerManager;
+
+
+function SetupThumbnailUi()
+{
+	const ThumbnailsDiv = document.querySelector(`#Thumbnails`);
+	const UniformsElement = document.querySelector(`#Uniforms`);
+	function OnLayerSelected(Index)
+	{
+		UniformsElement.onchange = null;
+
+		const Layer = LayerManager.GetLayer(Index);
+		const LayerUniforms = Layer.GetUniforms();
+		const LayerUniformMeta = {};
+		for ( let UniformName in LayerUniforms )
+			LayerUniformMeta[UniformName] = { Writable:true };
+		UniformsElement.meta = LayerUniformMeta;
+		UniformsElement.json = LayerUniforms;
+		
+		UniformsElement.onchange = function(NewUniforms)
+		{
+			Layer.SetUniforms(NewUniforms);
+		}
+	}
+	ThumbnailsDiv.OnSelectionChanged = OnLayerSelected;
+}
+SetupThumbnailUi();
 
 async function AppStartup()
 {

@@ -60,6 +60,11 @@ export default class LayerManager
 		this.Layers = [];
 	}
 	
+	GetLayer(LayerIndex)
+	{
+		return this.Layers[LayerIndex];
+	}
+	
 	InsertLayer(Layer,Position)
 	{
 		if ( !(Layer instanceof Layer_t) )
