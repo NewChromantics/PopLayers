@@ -228,6 +228,7 @@ body
 
 import LayerManager_t from './LayerManager.js'
 import LayerFrag from './LayerFrag.js'
+import {Yield} from './PopEngine/PopWebApiCore.js'
 
 let LayerManager;
 
@@ -242,6 +243,27 @@ async function AppStartup()
 	LayerManager.InsertLayer( Layer0, 0 );
 	LayerManager.InsertLayer( Layer1, 1 );
 	
+	Layer1.Frag = `
+precision highp float;
+varying vec2 FragUv;
+uniform sampler2D PreviousLayerImage;
+uniform float FrameTimeMs;
+void main()
+{
+	gl_FragColor = texture2D( PreviousLayerImage, FragUv );
+	gl_FragColor.z = fract( FrameTimeMs / 1000.0);
+	gl_FragColor.w = 0.5;
+}
+`;
+		Layer0.Frag = `
+precision highp float;
+varying vec2 FragUv;
+uniform sampler2D PreviousLayerImage;
+void main()
+{
+	gl_FragColor = vec4( FragUv,0.0,1.0 );
+}
+`;
 	//	todo: render only when
 	//	- user changes time
 	//	- user changes uniforms

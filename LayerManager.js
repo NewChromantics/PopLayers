@@ -1,6 +1,7 @@
 import Layer_t from './Layer.js'
 import Pop from './PopEngine/PopEngine.js'
 import Layer_Frag from './LayerFrag.js'
+import {CreateColourTexture} from './PopEngine/Images.js'
 
 class LayerRenderer
 {
@@ -10,6 +11,8 @@ class LayerRenderer
 		this.RenderContext = new Pop.Sokol.Context( this.RenderView );
 		
 		this.BlitToScreenLayer = new Layer_Frag();
+		
+		this.NullTexture = CreateColourTexture([0,0,0,0]);
 	}
 	
 	GetRenderCommands(FrameTimeMs)
@@ -23,7 +26,7 @@ class LayerRenderer
 	{
 		//	render each layer
 		let Uniforms = {};
-		Uniforms.PreviousLayerImage = null;
+		Uniforms.PreviousLayerImage = this.NullTexture;
 		for ( let l=0;	l<LayerCount;	l++ )
 		{
 			const Layer = GetLayer(l);
@@ -41,6 +44,7 @@ class LayerRenderer
 		{
 			const FinalRenderUniforms = {};
 			FinalRenderUniforms.FrameTimeMs = FrameTimeMs;
+			FinalRenderUniforms.PreviousLayerImage = Uniforms.PreviousLayerImage;
 			const FinalRenderTarget = null;	//	screen
 			const FinalRenderCommands = await this.BlitToScreenLayer.GetRenderCommands( FinalRenderUniforms, this.RenderContext, FinalRenderTarget );
 			await this.RenderContext.Render( FinalRenderCommands );

@@ -2,7 +2,17 @@ import Layer_t from './Layer.js'
 import PopImage from './PopEngine/PopWebImageApi.js'
 import {CreateBlitQuadGeometry} from './PopEngine/CommonGeometry.js'
 
-const DefaultFrag = `
+const Frag_Blit = `
+precision highp float;
+varying vec2 FragUv;
+uniform sampler2D PreviousLayerImage;
+void main()
+{
+	gl_FragColor = texture2D( PreviousLayerImage, FragUv );
+}
+`;
+
+export const Frag_Debug = `
 precision highp float;
 varying vec2 FragUv;
 void main()
@@ -19,6 +29,7 @@ attribute vec2 LocalPosition;
 void main()
 {
 	vec2 xy = mix( Rect.xy, Rect.xy+Rect.zw, LocalPosition );
+	xy = mix( vec2(-1), vec2(1), xy );
 	FragUv = LocalPosition;
 	gl_Position = vec4( xy, 0.5, 1.0 );
 }
@@ -33,11 +44,20 @@ export default class LayerFrag extends Layer_t
 		super();
 		
 		this.VertSource = DefaultVert;
-		this.FragSource = DefaultFrag;
+		this.FragSource = Frag_Blit;
 		this.TargetImage = null;
 		this.Shader = null;
 		this.Geometry = null;
+		
+		this.NewFragSource = null;
+		this.ClearColour = [0,0,0,0];
 	}
+	
+	set Frag(Source)
+	{
+		this.NewFragSource = Source;
+	}
+		
 	
 	GetTargetImage()
 	{
@@ -63,6 +83,17 @@ export default class LayerFrag extends Layer_t
 	
 	async GetShader(RenderContext)
 	{
+		//	shader dirty
+		if ( this.NewFragSource )
+		{
+			if ( this.Shader )
+			{
+				this.Shader.Free();
+			}
+			this.FragSource = this.NewFragSource;
+			this.NewFragSource = null;
+		}
+		
 		if ( !this.Shader )
 		{
 			const Macros = {};
@@ -85,11 +116,13 @@ export default class LayerFrag extends Layer_t
 		const FrameTimeMs = Uniforms.FrameTimeMs;
 		const TimeNorm = (FrameTimeMs/1000) % 1;
 		//const ClearColour = [0,TimeNorm,1,0.5];
-		const ClearColour = [1,0,0,1];
+		//const ClearColour = [1,0,0,1];
+		//const ClearColour = [0,0,0,0];
+		const ClearColour = this.ClearColour;
 		const ReadBack = (Target!=null) ? true : undefined;	//	need to readback for thumbnails in app
 		const Clear = ['SetRenderTarget',Target, ClearColour, ReadBack ];
 
-		const Rect = [-1,-1,2,2];
+		const Rect = [0,0,1,1];
 		Uniforms.Rect = Rect;
 		const Geo = await this.GetGeometry(RenderContext);
 		const Shader = await this.GetShader(RenderContext);
