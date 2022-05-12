@@ -2,13 +2,15 @@ import Layer_t from './Layer.js'
 import Pop from './PopEngine/PopEngine.js'
 import Layer_Frag from './LayerFrag.js'
 import Layer_DepthEstimate from './LayerDepthEstimate.js'
+import Layer_Image from './LayerImage.js'
 import {CreateColourTexture} from './PopEngine/Images.js'
 import PromiseQueue from './PopEngine/PromiseQueue.js'
 
 
 const LayerTypes = [
 Layer_Frag,
-Layer_DepthEstimate
+Layer_DepthEstimate,
+Layer_Image,
 ];
 
 function GetDefaultLayerFactory()

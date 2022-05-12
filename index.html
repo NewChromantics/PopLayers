@@ -86,6 +86,7 @@ body
 #Thumbnails > *
 {
 	width:		100%;
+	min-height:	5em;
 	display:	block;
 	padding:	0em;
 	margin:		0em;
@@ -195,6 +196,7 @@ body
 	var QueueNewVideoFunction = function(){	throw `QueueNewVideoFunction not assigned`;	};
 	var OnAddFragLayer = function(){	throw `OnAddFragLayer not assigned`; };
 	var OnAddDepthEstimateLayer = function(){	throw `OnAddDepthEstimateLayer not assigned`; };
+	var OnAddImageLayer = function(){	throw `OnAddImageLayer not assigned`; };
 	var OnLoadProject = function(){	throw `OnLoadProject not assigned`; };
 	
 	function LoadCatMp4()
@@ -277,6 +279,11 @@ body
 		OnAddDepthEstimateLayer();
 	}
 	
+	function AddImageLayer()
+	{
+		OnAddImageLayer();
+	}
+	
 	function LoadProject(ProjectName)
 	{
 		OnLoadProject(ProjectName);
@@ -331,17 +338,17 @@ body
 </div>
 
 <div id=Thumbnails>
-	<div id=DropZone>
-		<span>Drop .mp4 Layer</span>
-		<button onclick="LoadCatMp4()">Load Cat.mp4</button>
-	</div>
-	<div id=AddLayerBox>
+	<div class=AddLayerBox>
 		<span>Add new frag layer</span>
 		<button onclick="AddFragLayer()">Add Frag Layer</button>
 	</div>
-	<div id=AddLayerBox>
+	<div class=AddLayerBox>
 		<span>Add depth estimate layer</span>
 		<button onclick="AddDepthEstimateLayer()">Add Depth Estimate Layer</button>
+	</div>
+	<div class=AddLayerBox>
+		<span>Add image layer</span>
+		<button onclick="AddImageLayer()">Add image/video Layer</button>
 	</div>
 </div>
 
@@ -351,8 +358,9 @@ body
 import LayerManager_t from './LayerManager.js'
 import LayerFrag from './LayerFrag.js'
 import LayerDepthEstimate from './LayerDepthEstimate.js'
+import LayerImage from './LayerImage.js'
 import {Yield} from './PopEngine/PopWebApiCore.js'
-
+import {LoadFilePromptAsArrayBufferAsync} from './PopEngine/FileSystem.js'
 
 let CurrentLayerManager;
 let CurrentProjectName = null;
@@ -387,6 +395,13 @@ OnAddFragLayer = function()
 OnAddDepthEstimateLayer = function()
 {
 	const Layer = new LayerDepthEstimate();
+	CurrentLayerManager.InsertLayer( Layer );
+}
+OnAddImageLayer = async function()
+{
+	const ImageFile = await LoadFilePromptAsArrayBufferAsync("Image file");
+	const Layer = new LayerImage();
+	await Layer.LoadFile( ImageFile );
 	CurrentLayerManager.InsertLayer( Layer );
 }
 OnLoadProject = async function(ProjectName)
@@ -531,8 +546,15 @@ async function LayerManagerThread(ProjectName)
 	async function OnLayerImage(LayerIndex,Image)
 	{
 		const ImageElement = GetLayerThumbnailElement(LayerIndex);
-		const ImageUrl = await Image.GetDataUrl();
-		ImageElement.src = ImageUrl;
+		if ( !Image )
+		{
+			ImageElement.src = '';
+		}
+		else
+		{
+			const ImageUrl = await Image.GetDataUrl();
+			ImageElement.src = ImageUrl;
+		}
 	}
 	
 	async function RenderThread()
@@ -566,7 +588,7 @@ async function AppStartup()
 	}
 	else
 	{
-		LayerManagerThread( null );
+		LayerManagerThread(`First Project`);
 	}
 }
 AppStartup();
