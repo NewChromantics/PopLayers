@@ -98,6 +98,10 @@ export default class LayerManager
 		this.StructureChangeQueue = new PromiseQueue('LayerManager structure changes');
 	}
 	
+	Free()
+	{
+	}
+	
 	async WaitForStructureChange()
 	{
 		return this.StructureChangeQueue.WaitForLatest();
