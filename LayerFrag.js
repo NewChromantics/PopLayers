@@ -60,7 +60,7 @@ export default class LayerFrag extends Layer_t
 		this.NewFragSource = Source;
 	}
 	
-	GetUniforms()
+	GetUniforms(ForSerialisation=false)
 	{
 		const Uniforms = {};
 		
@@ -104,7 +104,7 @@ export default class LayerFrag extends Layer_t
 		return Metas;
 	}
 	
-	SetUniforms(Uniforms)
+	async SetUniforms(Uniforms)
 	{
 		//	detect source change
 		if ( Uniforms.FragSource != this.NewFragSource || this.FragSource )

@@ -24,7 +24,7 @@ export default class Layer
 	
 	//	parameters exposed to user
 	//	todo: with frame number for setting keyframes?
-	GetUniforms()
+	GetUniforms(ForSerialisation=false)
 	{
 		return {};
 	}
@@ -41,7 +41,7 @@ export default class Layer
 	}
 	
 	//	todo: with frame number for setting keyframes?
-	SetUniforms(Uniforms)
+	async SetUniforms(Uniforms)
 	{
 		//	allow this to not-error if no uniforms provided
 		if ( !Uniforms || Object.keys(Uniforms).length == 0 )

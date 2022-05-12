@@ -18,14 +18,35 @@ export default class LayerImage extends Layer_t
 		this.Image = Image;
 	}
 	
-	GetUniforms()
+	GetUniforms(ForSerialisation=false)
 	{
 		const Uniforms = {};
 		
 		//	may need something to indicate if we're serialising
 		//	as we dont want to convert to base64 each time...
-		Uniforms.Image = this.Image.Pixels;
+		if ( ForSerialisation )
+		{
+			/*
+			Uniforms.ImageWidth = this.Image.GetWidth();
+			Uniforms.ImageHeight = this.Image.GetHeight();
+			Uniforms.ImagePixelFormat = this.Image.GetPixelFormat();
+			const PixelBuffer = this.Image.GetPixelBuffer();
+			
+			Uniforms.ImageBase64 = this.Image.Pixels;
+			*/
+			Uniforms.ImagePng = this.Image.GetDataUrl();
+		}
+		
 		return Uniforms;
+	}
+	
+	async SetUniforms(Uniforms)
+	{
+		//	load png
+		if ( Uniforms.ImagePng )
+		{
+			await this.Image.LoadPng(Uniforms.ImagePng);
+		}
 	}
 	
 	GetUniformMetas()

@@ -443,9 +443,9 @@ function SetupThumbnailUi()
 			UniformsElement.meta = LayerUniformMeta;
 			UniformsElement.json = LayerUniforms;
 			
-			UniformsElement.onchange = function(NewUniforms)
+			UniformsElement.onchange = async function(NewUniforms)
 			{
-				Layer.SetUniforms(NewUniforms);
+				await Layer.SetUniforms(NewUniforms);
 				CurrentLayerManager.OnLayerChanged(Layer,`Changed uniforms`);
 			}
 		}

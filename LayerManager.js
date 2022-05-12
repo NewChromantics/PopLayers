@@ -112,15 +112,20 @@ export default class LayerManager
 	async LoadStructure(Structure,DataSourceName=`Unknown`)
 	{
 		//	setup new layers
-		function AllocAndLoadLayerStructure(LayerStructure,Index)
+		async function AllocAndLoadLayerStructure(LayerStructure)
 		{
 			const Type = LayerStructure.Type;
 			const Uniforms = LayerStructure.Uniforms;
 			const Layer = this.LayerFactory(Type);
-			Layer.SetUniforms(Uniforms);
+			await Layer.SetUniforms(Uniforms);
 			return Layer;
 		}
-		const NewLayers = Structure.Layers.map( AllocAndLoadLayerStructure.bind(this) );
+		const NewLayers = [];
+		for ( let StructureLayer of Structure.Layers )
+		{
+			const NewLayer = await AllocAndLoadLayerStructure.call(this,StructureLayer);
+			NewLayers.push( NewLayer );
+		}
 		
 		//	if that succeeded, delete the old ones and load these
 		this.Layers.forEach( Layer => Layer.Free() );
@@ -132,9 +137,10 @@ export default class LayerManager
 	{
 		function EncodeLayerToStructure(Layer)
 		{
+			const ForSerialisation = true;
 			const LayerStructure = {};
 			LayerStructure.Type = Layer.FactoryTypeName;
-			LayerStructure.Uniforms = Layer.GetUniforms();
+			LayerStructure.Uniforms = Layer.GetUniforms(ForSerialisation);
 			return LayerStructure;
 		}
 		
