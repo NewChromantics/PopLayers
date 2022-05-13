@@ -362,9 +362,15 @@ import LayerImage from './LayerImage.js'
 import {Yield} from './PopEngine/PopWebApiCore.js'
 import {LoadFilePromptAsArrayBufferAsync} from './PopEngine/FileSystem.js'
 
+//	dont reference CurrentLayerManager directly
 let CurrentLayerManager;
 let CurrentProjectName = null;
 
+
+function GetCurrentLayerManager()
+{
+	return CurrentLayerManager;
+}
 
 function SetProjectActive(ProjectName,LayerManager)
 {
@@ -390,19 +396,19 @@ function IsProjectActive(ProjectName)
 OnAddFragLayer = function()
 {
 	const Layer = new LayerFrag();
-	CurrentLayerManager.InsertLayer( Layer );
+	GetCurrentLayerManager().InsertLayer( Layer );
 }
 OnAddDepthEstimateLayer = function()
 {
 	const Layer = new LayerDepthEstimate();
-	CurrentLayerManager.InsertLayer( Layer );
+	GetCurrentLayerManager().InsertLayer( Layer );
 }
 OnAddImageLayer = async function()
 {
 	const ImageFile = await LoadFilePromptAsArrayBufferAsync("Image file");
 	const Layer = new LayerImage();
 	await Layer.LoadFile( ImageFile );
-	CurrentLayerManager.InsertLayer( Layer );
+	GetCurrentLayerManager().InsertLayer( Layer );
 }
 OnLoadProject = async function(ProjectName)
 {
@@ -437,7 +443,7 @@ function SetupThumbnailUi()
 		}
 		else
 		{
-			const Layer = CurrentLayerManager.GetLayer(Index);
+			const Layer = GetCurrentLayerManager().GetLayer(Index);
 			const LayerUniforms = Layer.GetUniforms();
 			const LayerUniformMeta = Layer.GetUniformMetas();
 			UniformsElement.meta = LayerUniformMeta;
@@ -445,8 +451,9 @@ function SetupThumbnailUi()
 			
 			UniformsElement.onchange = async function(NewUniforms)
 			{
+				const Layer = GetCurrentLayerManager().GetLayer(Index);
 				await Layer.SetUniforms(NewUniforms);
-				CurrentLayerManager.OnLayerChanged(Layer,`Changed uniforms`);
+				GetCurrentLayerManager().OnLayerChanged(Layer,`Changed uniforms`);
 			}
 		}
 	}
