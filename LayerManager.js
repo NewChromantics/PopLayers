@@ -51,6 +51,14 @@ class LayerRenderer
 		//	render each layer
 		let Uniforms = {};
 		Uniforms.PreviousLayerImage = this.NullTexture;
+		
+		//	initialise output in case we dont reach the end
+		if ( OnLayerProducedImage )
+		{
+			for ( let l=0;	l<LayerCount;	l++ )
+				OnLayerProducedImage( l, null );
+		}
+		
 		for ( let l=0;	l<LayerCount;	l++ )
 		{
 			const Layer = GetLayer(l);
