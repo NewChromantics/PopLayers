@@ -63,6 +63,9 @@ class LayerRenderer
 			catch(e)
 			{
 				console.warn(`Error rendering layer ${l}/${LayerCount}; ${e}`);
+				
+				//	slow down for things like compile errors
+				await Pop.Yield(2*1000);
 				break;
 			}
 			
