@@ -86,7 +86,7 @@ body
 #Thumbnails > *
 {
 	width:		100%;
-	min-height:	5em;
+	min-height:	3em;
 	display:	block;
 	padding:	0em;
 	margin:		0em;
@@ -382,6 +382,7 @@ function SetProjectActive(ProjectName,LayerManager)
 	//	set new one
 	CurrentLayerManager = LayerManager;
 	CurrentProjectName = ProjectName;
+	SaveLastActiveProject(ProjectName);
 	SetProjectButtonActive( ProjectName );
 	ClearLayerThumbnails();	
 }
@@ -432,6 +433,15 @@ function SetupThumbnailUi()
 {
 	const ThumbnailsDiv = document.querySelector(`#Thumbnails`);
 	const UniformsElement = document.querySelector(`#Uniforms`);
+	
+	async function UpdateUniforms(NewUniforms,LayerIndex)
+	{
+		let Index = LayerIndex;
+		const Layer = GetCurrentLayerManager().GetLayer(Index);
+		await Layer.SetUniforms(NewUniforms);
+		GetCurrentLayerManager().OnLayerChanged(Layer,`Changed uniforms`);
+	}
+	
 	function OnLayerSelected(Index)
 	{
 		UniformsElement.onchange = null;
@@ -449,21 +459,34 @@ function SetupThumbnailUi()
 			UniformsElement.meta = LayerUniformMeta;
 			UniformsElement.json = LayerUniforms;
 			
-			UniformsElement.onchange = async function(NewUniforms)
-			{
-				const Layer = GetCurrentLayerManager().GetLayer(Index);
-				await Layer.SetUniforms(NewUniforms);
-				GetCurrentLayerManager().OnLayerChanged(Layer,`Changed uniforms`);
-			}
+			UniformsElement.onchange = (NewUniforms) => UpdateUniforms( NewUniforms, Index ); 
 		}
 	}
 	ThumbnailsDiv.OnSelectionChanged = OnLayerSelected;
 }
 SetupThumbnailUi();
 
+const LastActiveProjectKey = '_LastActiveProject';
+async function SaveLastActiveProject(ProjectName)
+{
+	window.localStorage.setItem(LastActiveProjectKey,ProjectName);
+}
+
 async function GetProjectNames()
 {
-	const StoredKeys = Object.keys( window.localStorage );
+	let StoredKeys = Object.keys( window.localStorage );
+	
+	let LastProjectName = window.localStorage.getItem(LastActiveProjectKey);
+	StoredKeys = StoredKeys.filter( k => k!=LastActiveProjectKey );
+	
+	function Compare_LastProjectFirst(a,b)
+	{
+		if ( a == LastProjectName )	return -1;
+		if ( b == LastProjectName )	return 1;
+		return 0;
+	}
+	StoredKeys.sort(Compare_LastProjectFirst);
+	
 	return StoredKeys;
 }
 
