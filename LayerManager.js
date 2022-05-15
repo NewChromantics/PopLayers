@@ -160,6 +160,11 @@ export default class LayerManager
 		return Structure;
 	}
 	
+	GetLayerName(LayerIndex)
+	{
+		return `Layer${LayerIndex}`;
+	}
+	
 	GetLayer(LayerIndex)
 	{
 		return this.Layers[LayerIndex];

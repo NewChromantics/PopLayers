@@ -2,7 +2,6 @@
 <head>
 <title>Pop Layers</title>
 <script src="./WebComponent_TreeView/TreeView.js" type=module></script>
-<script src="./WebComponent_ThumbnailList/ThumbnailList.js" type=module></script>
 <style>
 
 canvas
@@ -74,17 +73,16 @@ body
 {
 	overflow:	auto;
 	background:	#eee;
-	/*
-	display:	grid;
-	grid-template-columns:	1fr;
-	grid-auto-rows: 1fr;
-	grid-column-gap: 30px;
-	grid-row-gap: 30px;
-	*/
+	
+	display:	flex;
+	flex-direction:	column;
+	flex-wrap:		nowrap;
 }
+
 
 #Thumbnails > *
 {
+	xdisplay:	block;
 	width:		100%;
 	min-height:	3em;
 	display:	block;
@@ -94,6 +92,11 @@ body
 	background:	var(--ChequerBoardBackground);
 }
 
+#Thumbnails #LayerTree
+{
+	flex:		1;
+}
+/*
 #Thumbnails img[selected]
 {
 	border:		2px solid red;
@@ -118,7 +121,7 @@ body
 	align-items:		center;
 	justify-items:		center;
 }
-
+*/
 #Progress
 {
 	grid-area:	Progress;
@@ -350,6 +353,7 @@ body
 		<span>Add image layer</span>
 		<button onclick="AddImageLayer()">Add image/video Layer</button>
 	</div>
+	<tree-view css="LayerTree.css" id=LayerTree></tree-view>
 </div>
 
 <script type="module">
@@ -370,6 +374,36 @@ let CurrentProjectName = null;
 function GetCurrentLayerManager()
 {
 	return CurrentLayerManager;
+}
+
+function UpdateLayerUi()
+{
+	const LayerManager = GetCurrentLayerManager();
+	const LayerTree = document.querySelector(`#LayerTree`);
+	//	generate tree
+	const Tree = {};
+	const Meta = {};
+	
+	Meta['_root'] = { Droppable:true };
+	
+	//	gr: this should probably be using GetStructure()
+	for ( let l=0;	l<LayerManager.Layers.length;	l++ )
+	{
+		const LayerName = LayerManager.GetLayerName(l);
+		Tree[LayerName] = {};
+		Meta[LayerName] = {};
+		Tree[LayerName].Name = LayerName;
+		Tree[LayerName].Thumbnail = {};
+		
+		Meta[LayerName] = { KeyAsLabel:'Name', Removable: true, Draggable:true, Selectable:true };
+		Meta[LayerName].ElementType = 'img';
+		Meta[LayerName+'.Thumbnail'] = { ElementType:'img' };
+		Meta[LayerName+'.Name'] = { Writable:true };
+	}
+	
+	LayerTree.rootMeta = {Droppable:true};
+	LayerTree.meta = Meta;
+	LayerTree.json = Tree;
 }
 
 function SetProjectActive(ProjectName,LayerManager)
@@ -559,6 +593,8 @@ async function LayerManagerThread(ProjectName)
 	await SaveToLocalStorage( LayerManager, ProjectName );
 	SetProjectActive( ProjectName, LayerManager );
 
+	UpdateLayerUi();
+
 	function IsThisProjectActive()
 	{
 		return IsProjectActive( ProjectName );
@@ -569,22 +605,52 @@ async function LayerManagerThread(ProjectName)
 		while ( IsThisProjectActive() )
 		{
 			await LayerManager.WaitForStructureChange();
-			await SaveToLocalStorage( LayerManager, ProjectName );
+			UpdateLayerUi();
+			
+			try
+			{
+				await SaveToLocalStorage( LayerManager, ProjectName );
+			}
+			catch(e)
+			{
+				console.error(e);
+			}
 		}
 	}
 
 	async function OnLayerImage(LayerIndex,Image)
 	{
-		const ImageElement = GetLayerThumbnailElement(LayerIndex);
 		if ( !Image )
+			return;
+			
+		//	update tree view json
+		const LayerTree = document.querySelector(`#LayerTree`);
+		let TreeJson = LayerTree.json;
+		let JsonChanged = false;
+		
+		const LayerName = LayerManager.GetLayerName(LayerIndex);
+		for ( let LayerNodeName in TreeJson )
 		{
-			//ImageElement.src = '';
-		}
-		else
-		{
+			if ( LayerNodeName != LayerName )
+				continue;
+			
 			const ImageUrl = await Image.GetDataUrl();
-			ImageElement.src = ImageUrl;
+			const Element = LayerTree.GetElement(LayerName);
+			if ( Element )
+			{
+				Element.src = ImageUrl;
+			}
+			else
+			{
+				if ( TreeJson[LayerName].Thumbnail )
+					TreeJson[LayerName].Thumbnail.src = ImageUrl;
+				TreeJson[LayerName].src = ImageUrl;
+				JsonChanged = true;
+			}
 		}
+		
+		if ( JsonChanged )
+			LayerTree.json = TreeJson;
 	}
 	
 	async function RenderThread()
