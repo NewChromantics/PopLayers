@@ -395,10 +395,10 @@ function UpdateLayerUi()
 		Tree[LayerName].Name = LayerName;
 		Tree[LayerName].Thumbnail = {};
 		
-		Meta[LayerName] = { KeyAsLabel:'Name', Removable: true, Draggable:true, Selectable:true };
-		Meta[LayerName].ElementType = 'img';
-		Meta[LayerName+'.Thumbnail'] = { ElementType:'img' };
-		Meta[LayerName+'.Name'] = { Writable:true };
+		Meta[LayerName] = { KeyAsLabel:'Name', Deletable: true, Draggable:true, Selectable:true };
+		//Meta[LayerName].ElementType = 'img';
+		Meta[LayerName+'.Thumbnail'] = { ElementType:'img',style:'pointer-events:none' };
+		Meta[LayerName+'.Name'] = { Visible:false };
 	}
 	
 	LayerTree.rootMeta = {Droppable:true};
@@ -634,8 +634,8 @@ async function LayerManagerThread(ProjectName)
 			if ( LayerNodeName != LayerName )
 				continue;
 			
-			const ImageUrl = await Image.GetDataUrl();
-			const Element = LayerTree.GetElement(LayerName);
+			const ImageUrl = await Image.GetDataUrlScaled(0.1);
+			const Element = LayerTree.GetElement(LayerName+'.Thumbnail');
 			if ( Element )
 			{
 				Element.src = ImageUrl;

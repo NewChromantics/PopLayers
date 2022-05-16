@@ -5,16 +5,18 @@
 	overflow:	auto;
 }
 
+/* uniform styling... come up with something better in treeview to keep members contained */
 img
 {
 	object-fit:	contain;
+	width:		100%;
 }
 
 .tree-view
 {
-	display:	flex;
+	display:		flex;
 	flex-direction:	column;
-	gap:		1em;
+	gap:			1em;
 }
 
 .tree-view > *
@@ -22,5 +24,5 @@ img
 	width:		25vmin;
 	height:		25vmin;
 	display:	block;
-	overflow:	hidden;
+	xoverflow:	hidden;
 }
