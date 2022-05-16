@@ -46,7 +46,7 @@ class LayerRenderer
 		return [Clear];
 	}
 	
-	async Render(FrameTimeMs,LayerCount,GetLayer,OnLayerProducedImage)
+	async Render(FrameTimeMs,LayerNames,GetLayer,OnLayerProducedImage)
 	{
 		//	render each layer
 		let Uniforms = {};
@@ -55,13 +55,13 @@ class LayerRenderer
 		//	initialise output in case we dont reach the end
 		if ( OnLayerProducedImage )
 		{
-			for ( let l=0;	l<LayerCount;	l++ )
-				OnLayerProducedImage( l, null );
+			for ( let LayerName of LayerNames )
+				OnLayerProducedImage( LayerName, null );
 		}
 		
-		for ( let l=0;	l<LayerCount;	l++ )
+		for ( let LayerName of LayerNames )
 		{
-			const Layer = GetLayer(l);
+			const Layer = GetLayer(LayerName);
 			let LayerOutput;
 			try
 			{
@@ -79,7 +79,7 @@ class LayerRenderer
 			
 			//	maybe this should be layer->promise?
 			if ( OnLayerProducedImage )
-				OnLayerProducedImage( l, LayerOutput );
+				OnLayerProducedImage( LayerName, LayerOutput );
 			
 			Uniforms.PreviousLayerImage = LayerOutput;
 		}
@@ -107,7 +107,8 @@ export default class LayerManager
 	{
 		this.LayerFactory = LayerFactory || GetDefaultLayerFactory();
 		this.Renderer = new LayerRenderer(Canvas);
-		this.Layers = [];
+		
+		this.Layers = {};
 		this.StructureChangeQueue = new PromiseQueue('LayerManager structure changes');
 	}
 	
@@ -119,74 +120,144 @@ export default class LayerManager
 	{
 		return this.StructureChangeQueue.WaitForLatest();
 	}
-	
-	async LoadStructure(Structure,DataSourceName=`Unknown`)
-	{
-		//	setup new layers
-		async function AllocAndLoadLayerStructure(LayerStructure)
-		{
-			const Type = LayerStructure.Type;
-			const Uniforms = LayerStructure.Uniforms;
-			const Layer = this.LayerFactory(Type);
-			await Layer.SetUniforms(Uniforms);
-			return Layer;
-		}
-		const NewLayers = [];
-		for ( let StructureLayer of Structure.Layers )
-		{
-			const NewLayer = await AllocAndLoadLayerStructure.call(this,StructureLayer);
-			NewLayers.push( NewLayer );
-		}
 		
-		//	if that succeeded, delete the old ones and load these
-		this.Layers.forEach( Layer => Layer.Free() );
-		this.Layers = NewLayers;
-		this.StructureChangeQueue.Push(`Loaded Layers from ${DataSourceName}`);
+	async SetSerialisedData(DataJson)
+	{
+		const Data = JSON.parse(DataJson);
+		this.SetStructure( Data.Structure );
+		
+		for ( let LayerName in Data.LayerUniforms )
+		{
+			const LayerUniforms = Data.LayerUniforms[LayerName];
+			const Layer = this.Layers[LayerName];
+			Layer.SetUniforms(LayerUniforms);
+		}
 	}
 	
-	async GetStructure()
+	async GetSerialisedData()
 	{
-		function EncodeLayerToStructure(Layer)
+		const Data = {};
+		Data.Structure = await this.GetStructure();
+		Data.LayerUniforms = {};
+		for ( let LayerName in this.Layers )
 		{
 			const ForSerialisation = true;
+			const Layer = this.Layers[LayerName];
+			const Uniforms = Layer.GetUniforms(ForSerialisation);
+			Data.LayerUniforms[LayerName] = Uniforms;
+		}
+		return JSON.stringify( Data, null, '\t' );
+	}
+	
+	SetStructure(Structure,DataSource=`Unknown`)
+	{
+		//	create/reorder layers
+		const NewLayers = {};
+		
+		for ( let LayerName in Structure.Layers )
+		{
+			const LayerStructure = Structure.Layers[LayerName];
+			let Layer = this.Layers[LayerName];
+			if ( !Layer )
+				Layer = this.LayerFactory( LayerStructure.Type );
+			NewLayers[LayerName] = Layer;
+		}
+		
+		//	overwrite old layers (will delete/reorder)
+		this.Layers = NewLayers;
+		this.StructureChangeQueue.Push(`SetStructure from ${DataSource}`);
+	}
+	
+	GetStructure()
+	{
+		function GetLayerStructure(Layer)
+		{
 			const LayerStructure = {};
 			LayerStructure.Type = Layer.FactoryTypeName;
-			LayerStructure.Uniforms = Layer.GetUniforms(ForSerialisation);
 			return LayerStructure;
 		}
 		
 		const Structure = {};
-		Structure.Layers = this.Layers.map( EncodeLayerToStructure.bind(this) );
+		Structure.Layers = {};
+		for ( let LayerName in this.Layers )
+		{
+			const Layer = this.Layers[LayerName];
+			const LayerStruct = GetLayerStructure(Layer);
+			Structure.Layers[LayerName] = LayerStruct;
+		}
 		return Structure;
 	}
 	
 	GetLayerIndex(LayerName)
 	{
-		for ( let l=0;	l<this.Layers.length;	l++ )
-			if ( this.GetLayerName(l) == LayerName )
-				return l;
-		return false;
+		const LayerNames = Object.keys(this.Layers);
+		return LayerNames.indexOf(LayerName);
 	}
 	
 	GetLayerName(LayerIndex)
 	{
-		return `Layer${LayerIndex}`;
+		const LayerNames = Object.keys(this.Layers);
+		return LayerNames[LayerIndex];
 	}
 	
-	GetLayer(LayerIndex)
+	GetLayer(LayerName)
 	{
-		return this.Layers[LayerIndex];
+		if ( typeof LayerName == typeof 123 )
+			throw `GetLayer(${LayerName}) with number instead of name`;
+		return this.Layers[LayerName];
 	}
 	
-	InsertLayer(Layer,Position=null)
+	GetNewLayerName()
 	{
-		if ( !(Layer instanceof Layer_t) )
-			throw `Layer is not a layer`;
+		let Name = `New Layer`;
+		for ( let SuffixNumber=1;	SuffixNumber<100;	SuffixNumber++ )
+		{
+			const NewLayerName = Name + ( SuffixNumber == 1 ? '' : SuffixNumber );
+			if ( !this.GetLayer(NewLayerName) )
+				return NewLayerName;
+		}
+		throw `Failed to generate a unique layer name`;
+	}
+	
+	InsertLayer(LayerName,Layer,Position=null)
+	{
+		if ( LayerName === null )
+			LayerName = this.GetNewLayerName();
+			
+		if ( this.GetLayer(LayerName) )
+			throw `Layer ${LayerName} already exists`;
+			
+		let LayerType;
+		if ( Layer instanceof Layer_t )
+		{
+			LayerType = Layer.FactoryTypeName;
+		}
+		else
+		{
+			LayerType = Layer;
+			Layer = null;
+		}
+
 		if ( Position === null )
-			Position = this.Layers.length;
-			 
-		this.Layers.splice( Position, 0, Layer );
-		this.OnLayerChanged(Layer,`Added`);
+			Position = Object.keys(this.Layers).length;
+	
+		const NewLayerMeta = {};
+		NewLayerMeta.Type = LayerType;
+		
+		//	get & set structure
+		const Structure = this.GetStructure();
+		
+		//	set instance of layer so it's fetched when we load the structre
+		if ( Layer )
+			this.Layers[LayerName] = Layer;
+		
+		//	set position by getting a list & regenerating
+		let LayerEntries = Object.entries(Structure.Layers);
+		const NewLayerEntry = [LayerName,NewLayerMeta];
+		LayerEntries.splice( Position, 0, NewLayerEntry );
+		Structure.Layers = Object.fromEntries( new Map(LayerEntries) );
+		
+		this.SetStructure( Structure, `Added ${LayerType}` );
 	}
 	
 	//	dirty a layer (do we need ids for layers here?)
@@ -198,10 +269,8 @@ export default class LayerManager
 	
 	async Render(FrameTimeMs,OnLayerProducedImage)
 	{
-		function GetLayer(Index)
-		{
-			return this.Layers[Index];
-		}
-		await this.Renderer.Render( FrameTimeMs, this.Layers.length, GetLayer.bind(this), OnLayerProducedImage );
+		const LayerNames = Object.keys(this.Layers);
+		const GetLayer = this.GetLayer.bind(this);
+		await this.Renderer.Render( FrameTimeMs, LayerNames, GetLayer, OnLayerProducedImage );
 	}
 }

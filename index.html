@@ -26,15 +26,15 @@ body
 	background:	#333;
 	padding:	0px;
 	margin:		var(--Spacing);
-
-	/* stretch grid to fill */
-	height:		100vh;
 	
 	display:	grid;
 	grid-template-areas:	"ProjectList ProjectList"
-							"Workspace Thumbnails"
+							"Error Error"
+							"Preview NewLayerButtons"
+							"Layers Uniforms"
 							;
-	grid-template-columns:	1.0fr 0.3fr;
+	grid-template-columns:	0.5fr 0.5fr;
+	grid-template-rows:		1em 0fr 1fr 1fr;
 	align-items:		normal;
 	justify-items:		normal;
 	
@@ -42,104 +42,35 @@ body
 	grid-row-gap:		var(--Spacing);
 }
 
-#Workspace
-{
-	display:	grid;
-	grid-template-areas:	"Error"
-							"Progress"
-							"Preview"
-							"Uniforms"
-							;
-	grid-template-rows:		0.0fr 2em 1fr 2fr;
-}
 
 #Preview
 {
 	background:	var(--ChequerBoardBackground);
-	
 	grid-area:	Preview;
+	
 	min-height:	10vh;
 }
 
 #Uniforms
 {
-	background:	#eee;
+	background:	var(--ChequerBoardBackground);
 	grid-area:	Uniforms;
+	
 	min-height:	10vh;
 	display:	block;
 }
 
-#Thumbnails
+#Layers
 {
-	overflow:	auto;
-	background:	#eee;
-	
-	display:	flex;
-	flex-direction:	column;
-	flex-wrap:		nowrap;
-}
-
-
-#Thumbnails > *
-{
-	xdisplay:	block;
-	width:		100%;
-	min-height:	3em;
-	display:	block;
-	padding:	0em;
-	margin:		0em;
-	
+	grid-area:	Layers;
 	background:	var(--ChequerBoardBackground);
 }
 
-#Thumbnails #LayerTree
-{
-	flex:		1;
-}
-/*
-#Thumbnails img[selected]
-{
-	border:		2px solid red;
-}
-
-#Thumbnails > div *
-{
-	display:	block;
-}
-
-#Thumbnails > div span
-{
-	pointer-events:	none;
-}
-
-#Thumbnails > div
-{
-	border:		dashed 1px #000;
-	padding:	1em;
-	
-	display:	grid;
-	align-items:		center;
-	justify-items:		center;
-}
-*/
 #Progress
 {
+	display:	none;
 	grid-area:	Progress;
 	background:	#ff0;
-	padding:	1em;
-}
-
-#InputVideo
-{
-	grid-area:	InputVideo;
-	background:	#efe;
-	padding:	1em;
-}
-
-#OutputDepth
-{
-	grid-area:	OutputDepth;
-	background:	#ffe;
 	padding:	1em;
 }
 
@@ -167,8 +98,15 @@ body
 	display:	none;
 }
 
+#NewLayerButtons
+{
+	background:	var(--ChequerBoardBackground);
+	grid-area:	NewLayerButtons;
+}
+
 #ProjectList
 {
+	background:	var(--ChequerBoardBackground);
 	grid-area:	ProjectList;
 	background:	black;
 	min-height:	2em;
@@ -219,57 +157,6 @@ body
 		const Div = document.querySelector(`#Error`);
 		const Text = Error ? `${Error}` : '';
 		Div.innerText = Text;
-	}
-	
-	function GetLayerThumbnailImages()
-	{
-		return Array.from( document.querySelectorAll(`#Thumbnails img`) );
-	}
-
-	function SelectNoLayer()
-	{
-		SelectThumbnailElement( null, null );
-	}
-
-	function SelectThumbnailElement(Element,Index=null)
-	{
-		const ThumbnailsDiv = document.querySelector(`#Thumbnails`);
-		
-		let LayerThumbnailImages = GetLayerThumbnailImages();
-		LayerThumbnailImages.forEach( img => img.removeAttribute('selected') );
-		
-		if ( Element )
-			Element.setAttribute('selected',true);
-		
-		if ( ThumbnailsDiv.OnSelectionChanged )
-			ThumbnailsDiv.OnSelectionChanged(Index);
-	}
-	
-	function ClearLayerThumbnails()
-	{
-		const Thumbnails = GetLayerThumbnailImages();
-		Thumbnails.forEach( t => t.parentElement.removeChild(t) );
-		SelectNoLayer();
-	}
-	
-	function GetLayerThumbnailElement(LayerIndex)
-	{
-		const ThumbnailsDiv = document.querySelector(`#Thumbnails`);
-		
-		let LayerThumbnailImages = GetLayerThumbnailImages();
-		
-		//	add images to document if some are missing
-		while ( LayerIndex >= LayerThumbnailImages.length )
-		{
-			const NewImageIndex = LayerThumbnailImages.length;
-			let NewImage = document.createElement('img');
-			NewImage.onclick = () => SelectThumbnailElement(NewImage,NewImageIndex);
-
-			ThumbnailsDiv.appendChild( NewImage );
-			LayerThumbnailImages = GetLayerThumbnailImages();
-		}
-		
-		return LayerThumbnailImages[LayerIndex];
 	}
 	
 	function AddFragLayer()
@@ -333,28 +220,24 @@ body
 	<button id=NewProject onclick="LoadProject(null)">+ Create New Project</button>
 </div>
 
-<div id=Workspace>
-	<div id=Error></div>
-	<div id=Progress>0/0</div>
-	<canvas id=Preview></canvas>
-	<tree-view id=Uniforms json='' css="WebComponent_TreeView/TreeView.css"></tree-View>
-</div>
 
-<div id=Thumbnails>
+<div id=Error></div>
+<div id=Progress>0/0</div>
+<canvas id=Preview></canvas>
+<tree-view id=Uniforms json='' css="WebComponent_TreeView/TreeView.css"></tree-View>
+
+<div id=NewLayerButtons>
 	<div class=AddLayerBox>
-		<span>Add new frag layer</span>
 		<button onclick="AddFragLayer()">Add Frag Layer</button>
 	</div>
 	<div class=AddLayerBox>
-		<span>Add depth estimate layer</span>
 		<button onclick="AddDepthEstimateLayer()">Add Depth Estimate Layer</button>
 	</div>
 	<div class=AddLayerBox>
-		<span>Add image layer</span>
 		<button onclick="AddImageLayer()">Add image/video Layer</button>
 	</div>
-	<tree-view css="LayerTree.css" id=LayerTree></tree-view>
 </div>
+<tree-view css="LayerTree.css" id=Layers></tree-view>
 
 <script type="module">
 
@@ -379,18 +262,19 @@ function GetCurrentLayerManager()
 function UpdateLayerUi()
 {
 	const LayerManager = GetCurrentLayerManager();
-	const LayerTree = document.querySelector(`#LayerTree`);
+	const LayerTree = document.querySelector(`#Layers`);
 	//	generate tree
-	const Tree = {};
+	let Tree = {};
 	const Meta = {};
 	
 	Meta['_root'] = { Droppable:true };
 	
+	const Structure = LayerManager.GetStructure();
+	Tree = Structure.Layers;
+	
 	//	gr: this should probably be using GetStructure()
-	for ( let l=0;	l<LayerManager.Layers.length;	l++ )
+	for ( let LayerName in Structure.Layers )
 	{
-		const LayerName = LayerManager.GetLayerName(l);
-		Tree[LayerName] = {};
 		Meta[LayerName] = {};
 		Tree[LayerName].Name = LayerName;
 		Tree[LayerName].Thumbnail = {};
@@ -399,11 +283,24 @@ function UpdateLayerUi()
 		//Meta[LayerName].ElementType = 'img';
 		Meta[LayerName+'.Thumbnail'] = { ElementType:'img',style:'pointer-events:none' };
 		Meta[LayerName+'.Name'] = { Visible:false };
+		Meta[LayerName+'.Type'] = { Visible:false };
 	}
+	
+	LayerTree.onchange = function(){};
 	
 	LayerTree.rootMeta = {Droppable:true};
 	LayerTree.meta = Meta;
 	LayerTree.json = Tree;
+	
+	function OnTreeChanged(NewTree,Change)
+	{
+		const NewStructure = {};
+		NewStructure.Layers = {};
+		NewStructure.Layers = NewTree;
+		LayerManager.SetStructure(NewStructure,`Tree changed`);
+	}
+	
+	LayerTree.onchange = OnTreeChanged;
 }
 
 function SetProjectActive(ProjectName,LayerManager)
@@ -418,7 +315,6 @@ function SetProjectActive(ProjectName,LayerManager)
 	CurrentProjectName = ProjectName;
 	SaveLastActiveProject(ProjectName);
 	SetProjectButtonActive( ProjectName );
-	ClearLayerThumbnails();	
 }
 
 function IsProjectActive(ProjectName)
@@ -430,20 +326,18 @@ function IsProjectActive(ProjectName)
 //	bind UI
 OnAddFragLayer = function()
 {
-	const Layer = new LayerFrag();
-	GetCurrentLayerManager().InsertLayer( Layer );
+	GetCurrentLayerManager().InsertLayer(null,'LayerFrag' );
 }
 OnAddDepthEstimateLayer = function()
 {
-	const Layer = new LayerDepthEstimate();
-	GetCurrentLayerManager().InsertLayer( Layer );
+	GetCurrentLayerManager().InsertLayer(null,'LayerDepthEstimate');
 }
 OnAddImageLayer = async function()
 {
 	const ImageFile = await LoadFilePromptAsArrayBufferAsync("Image file");
 	const Layer = new LayerImage();
 	await Layer.LoadFile( ImageFile );
-	GetCurrentLayerManager().InsertLayer( Layer );
+	GetCurrentLayerManager().InsertLayer(null, Layer );
 }
 OnLoadProject = async function(ProjectName)
 {
@@ -465,14 +359,13 @@ OnLoadProject = async function(ProjectName)
 
 function SetupThumbnailUi()
 {
-	const LayerTree = document.querySelector(`#LayerTree`);
+	const LayerTree = document.querySelector(`#Layers`);
 	const ThumbnailsDiv = document.querySelector(`#Thumbnails`);
 	const UniformsElement = document.querySelector(`#Uniforms`);
 	
-	async function UpdateUniforms(NewUniforms,LayerIndex)
+	async function UpdateUniforms(NewUniforms,LayerName)
 	{
-		let Index = LayerIndex;
-		const Layer = GetCurrentLayerManager().GetLayer(Index);
+		const Layer = GetCurrentLayerManager().GetLayer(LayerName);
 		await Layer.SetUniforms(NewUniforms);
 		GetCurrentLayerManager().OnLayerChanged(Layer,`Changed uniforms`);
 	}
@@ -480,39 +373,31 @@ function SetupThumbnailUi()
 	function OnLayerNameSelected(Names)
 	{
 		const LayerName = Names[0];
-		if ( !LayerName )
-		{
-			OnLayerSelected(null);
-		}
-		else
-		{
-			const LayerIndex = GetCurrentLayerManager().GetLayerIndex(LayerName);
-			OnLayerSelected(LayerIndex);
-		}
+		OnLayerSelected(LayerName);
 	}
 	
-	function OnLayerSelected(Index)
+	function OnLayerSelected(LayerName)
 	{
 		UniformsElement.onchange = null;
 		
-		if ( !Index && Index !== 0 )
+		const Layer = GetCurrentLayerManager().GetLayer(LayerName);
+			
+		if ( !Layer )
 		{
 			UniformsElement.meta = {};
 			UniformsElement.json = {};
 		}
 		else
 		{
-			const Layer = GetCurrentLayerManager().GetLayer(Index);
 			const LayerUniforms = Layer.GetUniforms();
 			const LayerUniformMeta = Layer.GetUniformMetas();
 			UniformsElement.meta = LayerUniformMeta;
 			UniformsElement.json = LayerUniforms;
 			
-			let CaptureIndex = Index;
-			UniformsElement.onchange = (NewUniforms) => UpdateUniforms( NewUniforms, CaptureIndex ); 
+			let CaptureLayerName = LayerName;
+			UniformsElement.onchange = (NewUniforms) => UpdateUniforms( NewUniforms, CaptureLayerName ); 
 		}
 	}
-	ThumbnailsDiv.OnSelectionChanged = OnLayerSelected;
 	LayerTree.onselectionchange = OnLayerNameSelected;
 }
 SetupThumbnailUi();
@@ -537,18 +422,29 @@ async function GetProjectNames()
 		return 0;
 	}
 	StoredKeys.sort(Compare_LastProjectFirst);
+
+	StoredKeys = StoredKeys.map(GetProjectNameFromFilename);
 	
 	return StoredKeys;
 }
 
+function GetProjectNameFromFilename(ProjectFilename)
+{
+	return ProjectFilename;
+}
+function GetProjectFilename(ProjectName)
+{
+	return `${ProjectName}`;
+}
+
 async function LoadFromLocalStorage(LayerManager,ProjectName)
 {
-	const StructureJson = window.localStorage.getItem(ProjectName);
-	if ( !StructureJson )
+	const Filename = GetProjectFilename(ProjectName);
+	const SerialisedData = window.localStorage.getItem(Filename);
+	if ( !SerialisedData )
 		return false;
 	
-	const Structure = JSON.parse( StructureJson );
-	LayerManager.LoadStructure(Structure,`LocalStorage`);
+	await LayerManager.SetSerialisedData( SerialisedData,`LocalStorage`);
 	return true;
 }
 
@@ -556,14 +452,14 @@ async function SaveToLocalStorage(LayerManager,ProjectName)
 {
 	if ( !ProjectName )
 		throw `SaveToLocalStorage invalid name ${ProjectName}`;
-		
+	
+	const SerialisedData = await LayerManager.GetSerialisedData();
+	const Filename = GetProjectFilename(ProjectName);
+	
 	//	should switch to indexedDB once we need to store blobs (images probably)
 	//	https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API
-	const Structure = await LayerManager.GetStructure();
-	//	todo: convert back to make sure we haven't lost anything in translation?
-	const StructureJson = JSON.stringify( Structure );
-	const IsNewItem = window.localStorage.getItem(ProjectName)==null;
-	window.localStorage.setItem(ProjectName,StructureJson);
+	const IsNewItem = window.localStorage.getItem(Filename)==null;
+	window.localStorage.setItem(Filename,SerialisedData);
 	
 	//	update ui in case we wrote a new project
 	if ( IsNewItem )
@@ -604,7 +500,7 @@ async function LayerManagerThread(ProjectName)
 		//OnAddFragLayer();
 		const Layer0 = new LayerFrag();
 		Layer0.Frag = DefaultFragShader;
-		LayerManager.InsertLayer( Layer0, 0 );
+		LayerManager.InsertLayer( null, Layer0, 0 );
 	}
 	
 	await SaveToLocalStorage( LayerManager, ProjectName );
@@ -635,29 +531,24 @@ async function LayerManagerThread(ProjectName)
 		}
 	}
 
-	async function OnLayerImage(LayerIndex,Image)
+	async function OnLayerImage(LayerName,Image)
 	{
 		if ( !Image )
 			return;
 			
 		//	update tree view json
-		const LayerTree = document.querySelector(`#LayerTree`);
+		const LayerTree = document.querySelector(`#Layers`);
 		let TreeJson = LayerTree.json;
 		let JsonChanged = false;
 		
-		const LayerName = LayerManager.GetLayerName(LayerIndex);
-		for ( let LayerNodeName in TreeJson )
 		{
-			if ( LayerNodeName != LayerName )
-				continue;
-			
 			const ImageUrl = await Image.GetDataUrlScaled(0.1);
 			const Element = LayerTree.GetElement(LayerName+'.Thumbnail');
 			if ( Element )
 			{
 				Element.src = ImageUrl;
 			}
-			else
+			else if ( TreeJson[LayerName] )
 			{
 				if ( TreeJson[LayerName].Thumbnail )
 					TreeJson[LayerName].Thumbnail.src = ImageUrl;
