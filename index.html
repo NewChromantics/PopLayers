@@ -465,6 +465,7 @@ OnLoadProject = async function(ProjectName)
 
 function SetupThumbnailUi()
 {
+	const LayerTree = document.querySelector(`#LayerTree`);
 	const ThumbnailsDiv = document.querySelector(`#Thumbnails`);
 	const UniformsElement = document.querySelector(`#Uniforms`);
 	
@@ -476,11 +477,25 @@ function SetupThumbnailUi()
 		GetCurrentLayerManager().OnLayerChanged(Layer,`Changed uniforms`);
 	}
 	
+	function OnLayerNameSelected(Names)
+	{
+		const LayerName = Names[0];
+		if ( !LayerName )
+		{
+			OnLayerSelected(null);
+		}
+		else
+		{
+			const LayerIndex = GetCurrentLayerManager().GetLayerIndex(LayerName);
+			OnLayerSelected(LayerIndex);
+		}
+	}
+	
 	function OnLayerSelected(Index)
 	{
 		UniformsElement.onchange = null;
 		
-		if ( Index === null )
+		if ( !Index && Index !== 0 )
 		{
 			UniformsElement.meta = {};
 			UniformsElement.json = {};
@@ -493,10 +508,12 @@ function SetupThumbnailUi()
 			UniformsElement.meta = LayerUniformMeta;
 			UniformsElement.json = LayerUniforms;
 			
-			UniformsElement.onchange = (NewUniforms) => UpdateUniforms( NewUniforms, Index ); 
+			let CaptureIndex = Index;
+			UniformsElement.onchange = (NewUniforms) => UpdateUniforms( NewUniforms, CaptureIndex ); 
 		}
 	}
 	ThumbnailsDiv.OnSelectionChanged = OnLayerSelected;
+	LayerTree.onselectionchange = OnLayerNameSelected;
 }
 SetupThumbnailUi();
 
