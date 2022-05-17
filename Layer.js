@@ -1,4 +1,42 @@
 
+export class UnsupportedLayerType
+{
+	constructor(TypeName)
+	{
+		this.TypeName = TypeName;
+		
+		//	save & load same uniforms
+		this.Uniforms = {};
+	}
+	
+	GetUniforms()
+	{
+		return this.Uniforms;
+	}
+	
+	async SetUniforms(NewUniforms)
+	{
+		this.Uniforms = NewUniforms;
+	}
+	
+	GetState()
+	{
+		const State = {};
+		State.Error = `Unsupported type ${this.TypeName}`;
+		return State;
+	}
+	
+	get FactoryTypeName()
+	{
+		return this.TypeName;
+	}
+	
+	async GetImage(FrameTimeMs,RenderContext)
+	{
+		throw this.GetState().Error;
+	}
+}
+
 export default class Layer
 {
 	constructor()
@@ -20,6 +58,12 @@ export default class Layer
 		Meta.PixelFormat = 'Float4';
 		Object.assign( Meta, PreviousLayerMeta );
 		return Meta;
+	}
+	
+	GetState()
+	{
+		//	return .Error here
+		return {};
 	}
 	
 	//	parameters exposed to user

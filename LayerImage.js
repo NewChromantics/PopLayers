@@ -8,7 +8,7 @@ export default class LayerImage extends Layer_t
 	constructor()
 	{
 		super();
-		this.Image = CreateRandomImage( 10,10 );
+		this.Image = null;//CreateRandomImage( 10,10 );
 	}
 	
 	async LoadFile(ImageData)
@@ -34,6 +34,8 @@ export default class LayerImage extends Layer_t
 			
 			Uniforms.ImageBase64 = this.Image.Pixels;
 			*/
+			if ( !this.Image && ForSerialisation )
+				throw `trying to serialise before layer is loaded`;
 			Uniforms.ImagePng = this.Image.GetDataUrl();
 		}
 		
@@ -45,6 +47,8 @@ export default class LayerImage extends Layer_t
 		//	load png
 		if ( Uniforms.ImagePng )
 		{
+			if ( !this.Image )
+				this.Image = new PopImage();
 			await this.Image.LoadPng(Uniforms.ImagePng);
 		}
 	}

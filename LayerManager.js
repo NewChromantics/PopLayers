@@ -5,7 +5,7 @@ import Layer_DepthEstimate from './LayerDepthEstimate.js'
 import Layer_Image from './LayerImage.js'
 import {CreateColourTexture} from './PopEngine/Images.js'
 import PromiseQueue from './PopEngine/PromiseQueue.js'
-
+import {UnsupportedLayerType} from './Layer.js'
 
 const LayerTypes = [
 Layer_Frag,
@@ -18,10 +18,22 @@ function GetDefaultLayerFactory()
 	function CreateLayer(TypeName)
 	{
 		const TypeMatch = LayerTypes.find( lt => lt.prototype.constructor.name == TypeName );
+
+		//	return an unsupported layer type if unsupported so we retain layer
 		if ( !TypeMatch )
-			throw `Unknown layer type ${TypeName}`;
-		const NewLayer = new TypeMatch();
-		return NewLayer;
+			return new UnsupportedLayerType(TypeName);
+
+		//	return an unsupported layer type if we fail to construct a known type
+		try
+		{
+			const NewLayer = new TypeMatch();
+			return NewLayer;
+		}
+		catch(e)
+		{
+			console.warn(`Failed to create layer ${TypeName}; ${e}`);
+			return new UnsupportedLayerType(TypeName,e);
+		}
 	}
 	return CreateLayer;
 }
@@ -130,7 +142,7 @@ export default class LayerManager
 		{
 			const LayerUniforms = Data.LayerUniforms[LayerName];
 			const Layer = this.Layers[LayerName];
-			Layer.SetUniforms(LayerUniforms);
+			await Layer.SetUniforms(LayerUniforms);
 		}
 	}
 	
