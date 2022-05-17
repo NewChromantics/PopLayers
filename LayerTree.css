@@ -10,19 +10,13 @@ img
 {
 	object-fit:	contain;
 	width:		100%;
+	pointer-events:none;
 }
 
 .tree-view
 {
 	display:		flex;
 	flex-direction:	column;
+	align-items:	stretch;
 	gap:			1em;
-}
-
-.tree-view > *
-{
-	width:		25vmin;
-	height:		25vmin;
-	display:	block;
-	xoverflow:	hidden;
 }
