@@ -247,7 +247,7 @@ import LayerFrag from './LayerFrag.js'
 import LayerDepthEstimate from './LayerDepthEstimate.js'
 import LayerImage from './LayerImage.js'
 import {Yield} from './PopEngine/PopWebApiCore.js'
-import {LoadFilePromptAsArrayBufferAsync} from './PopEngine/FileSystem.js'
+import {LoadFilePromptAsArrayBufferAsync} from './PopEngine/PopWebFileSystem.js'
 
 //	dont reference CurrentLayerManager directly
 let CurrentLayerManager;
@@ -271,15 +271,31 @@ function UpdateLayerUi()
 	
 	const Structure = LayerManager.GetStructure();
 	Tree = Structure.Layers;
+
+	const DefaultLayerMeta = 
+	{ 
+		KeyAsLabel:'Name', 
+		Deletable: true, 
+		Draggable:true,
+		Selectable:true
+	};
 	
 	//	gr: this should probably be using GetStructure()
 	for ( let LayerName in Structure.Layers )
 	{
+		const Layer = LayerManager.GetLayer(LayerName);
+		
 		Meta[LayerName] = {};
 		Tree[LayerName].Name = LayerName;
 		Tree[LayerName].Thumbnail = {};
 		
-		Meta[LayerName] = { KeyAsLabel:'Name', Deletable: true, Draggable:true, Selectable:true };
+		//	use state (eg. .Error) as meta so we can display via css
+		//	and not to intefere with tree/structure
+		const LayerMeta = {};
+		Object.assign( LayerMeta, Layer.GetState() );
+		Object.assign( LayerMeta, DefaultLayerMeta );
+
+		Meta[LayerName] = LayerMeta;
 		//Meta[LayerName].ElementType = 'img';
 		Meta[LayerName+'.Thumbnail'] = { ElementType:'img',style:'pointer-events:none' };
 		Meta[LayerName+'.Name'] = { Visible:false };
@@ -402,18 +418,34 @@ function SetupThumbnailUi()
 }
 SetupThumbnailUi();
 
-const LastActiveProjectKey = '_LastActiveProject';
+
+const AppStateFilename = 'LayersApp';
 async function SaveLastActiveProject(ProjectName)
 {
-	window.localStorage.setItem(LastActiveProjectKey,ProjectName);
+	const AppState = {};
+	AppState.LastProjectName = ProjectName;
+	const AppStateJson = JSON.stringify( AppState );
+	window.localStorage.setItem(AppStateFilename,AppStateJson);
 }
 
 async function GetProjectNames()
 {
+	//let StoredKeys = Pop.FileSystem.GetFilenames('Documents/');
 	let StoredKeys = Object.keys( window.localStorage );
 	
-	let LastProjectName = window.localStorage.getItem(LastActiveProjectKey);
-	StoredKeys = StoredKeys.filter( k => k!=LastActiveProjectKey );
+	let LastProjectName;
+	try
+	{
+		let AppState = window.localStorage.getItem(AppStateFilename);
+		AppState = JSON.parse( AppState );
+		LastProjectName = AppState.LastProjectName;
+	}
+	catch(e)
+	{
+		console.warn(`Error loading app state ${e}`);
+	}
+	
+	StoredKeys = StoredKeys.filter( k => k!=AppStateFilename );
 	
 	function Compare_LastProjectFirst(a,b)
 	{
