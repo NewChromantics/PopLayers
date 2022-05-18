@@ -104,6 +104,12 @@ body
 	grid-area:	NewLayerButtons;
 }
 
+#NewLayerButtons > *
+{
+	display:	block;
+	margin:		0.5em;
+}
+
 #ProjectList
 {
 	background:	var(--ChequerBoardBackground);
@@ -134,11 +140,13 @@ body
 <body>
 
 <script>
+	//	bindings for module
 	var QueueNewVideoFunction = function(){	throw `QueueNewVideoFunction not assigned`;	};
 	var OnAddFragLayer = function(){	throw `OnAddFragLayer not assigned`; };
 	var OnAddDepthEstimateLayer = function(){	throw `OnAddDepthEstimateLayer not assigned`; };
 	var OnAddImageLayer = function(){	throw `OnAddImageLayer not assigned`; };
 	var OnLoadProject = function(){	throw `OnLoadProject not assigned`; };
+	var OnDownloadProject = function(){	throw `OnDownloadProject not assigned`; };
 	
 	function LoadCatMp4()
 	{
@@ -172,6 +180,11 @@ body
 	function AddImageLayer()
 	{
 		OnAddImageLayer();
+	}
+	
+	function DownloadProject()
+	{
+		OnDownloadProject();
 	}
 	
 	function LoadProject(ProjectName)
@@ -230,14 +243,17 @@ body
 <tree-view id=Uniforms json='' css="WebComponent_TreeView/TreeView.css"></tree-View>
 
 <div id=NewLayerButtons>
-	<div class=AddLayerBox>
+	<div>
 		<button onclick="AddFragLayer()">Add Frag Layer</button>
 	</div>
-	<div class=AddLayerBox>
+	<div>
 		<button onclick="AddDepthEstimateLayer()">Add Depth Estimate Layer</button>
 	</div>
-	<div class=AddLayerBox>
+	<div>
 		<button onclick="AddImageLayer()">Add image/video Layer</button>
+	</div>
+	<div>
+		<button onclick="DownloadProject()">Download project</button>
 	</div>
 </div>
 <tree-view css="LayerTree.css" id=Layers></tree-view>
@@ -377,6 +393,20 @@ OnLoadProject = async function(ProjectName)
 	LayerManagerThread(ProjectName);
 }
 
+OnDownloadProject = async function()
+{
+	const LayerManager = GetCurrentLayerManager();
+	if ( !LayerManager )
+		return;
+	const ProjectName = CurrentProjectName;
+
+	//	not including Documents/ will produce a save as.. dialog
+	const Filename = ProjectName + ProjectFilenameSuffix;//GetProjectFilename(ProjectName);
+	
+	const SerialisedData = await LayerManager.GetSerialisedData();
+	await FileSystem.WriteStringToFileAsync( Filename, SerialisedData );
+}
+
 function SetupThumbnailUi()
 {
 	const LayerTree = document.querySelector(`#Layers`);
@@ -425,13 +455,13 @@ SetupThumbnailUi();
 
 const ProjectFilenamePrefix = 'Documents/';
 const ProjectFilenameSuffix = '.json';
-const AppStateFilename = 'LayersApp';
+const AppStateFilename = 'Documents/LayersAppState';
 async function SaveLastActiveProject(ProjectName)
 {
 	const AppState = {};
 	AppState.LastProjectName = ProjectName;
 	const AppStateJson = JSON.stringify( AppState );
-	window.localStorage.setItem(AppStateFilename,AppStateJson);
+	await FileSystem.WriteStringToFileAsync( AppStateFilename, AppStateJson );
 }
 
 async function GetProjectNames()
@@ -473,7 +503,7 @@ function GetProjectNameFromFilename(ProjectFilename)
 		throw `${ProjectFilename} doesn't end with ${ProjectFilenameSuffix}`;
 		
 	ProjectFilename = ProjectFilename.substr( ProjectFilenamePrefix.length );
-	ProjectFilename = ProjectFilename.substr( 0, -ProjectFilenameSuffix.length );
+	ProjectFilename = ProjectFilename.slice( 0, -ProjectFilenameSuffix.length );
 	return ProjectFilename;
 }
 function GetProjectFilename(ProjectName)
